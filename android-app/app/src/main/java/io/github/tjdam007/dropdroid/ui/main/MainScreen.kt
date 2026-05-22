@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -173,7 +174,7 @@ private fun HeroPanel(state: ReceiverState) {
       Spacer(Modifier.width(14.dp))
       Column {
         Text("DropDroid", style = MaterialTheme.typography.headlineLarge, color = Color.White)
-        Text("Local-only file sharing", color = Color.White.copy(alpha = 0.78f))
+        Text("Secure local receiver", color = Color.White.copy(alpha = 0.78f), fontWeight = FontWeight.SemiBold)
       }
     }
 
@@ -184,7 +185,10 @@ private fun HeroPanel(state: ReceiverState) {
       color = Color.White,
     )
     Spacer(Modifier.height(12.dp))
-    StatusPill(if (state.running) "Receiver online" else "Receiver offline")
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+      StatusPill(if (state.running) "Receiver online" else "Receiver offline")
+      StatusPill(if (state.isPaired) "Portal paired" else "Pairing needed")
+    }
   }
 }
 
@@ -196,9 +200,10 @@ private fun InfoPanel(state: ReceiverState) {
         .fillMaxWidth()
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
         .padding(18.dp),
   ) {
-    Text("Connection", style = MaterialTheme.typography.titleMedium)
+    PanelTitle("Connection", "Local reachability")
     Spacer(Modifier.height(14.dp))
     InfoRow("Device IP", state.ipAddress)
     Spacer(Modifier.height(12.dp))
@@ -241,9 +246,10 @@ private fun DestinationPanel(state: ReceiverState, onPickFolder: () -> Unit, onU
         .fillMaxWidth()
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
         .padding(18.dp),
   ) {
-    Text("Save location", style = MaterialTheme.typography.titleMedium)
+    PanelTitle("Storage", "Save destination")
     Spacer(Modifier.height(8.dp))
     Text(state.destinationLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Spacer(Modifier.height(14.dp))
@@ -262,6 +268,8 @@ private fun DestinationPanel(state: ReceiverState, onPickFolder: () -> Unit, onU
 private fun ControlsSection(state: ReceiverState, onScanQr: () -> Unit, onAllowApkInstalls: () -> Unit) {
   val context = LocalContext.current
   Column {
+    SectionLabel("Setup")
+    Spacer(Modifier.height(8.dp))
     FeaturePanel(
       title = if (state.isPaired) "Secure portal paired" else "Pair secure portal",
       body = if (state.isPaired) "Only the paired portal can send files to this phone." else "Scan the QR shown on the desktop portal before receiving files.",
@@ -316,6 +324,7 @@ private fun FeaturePanel(title: String, body: String, action: @Composable () -> 
         .fillMaxWidth()
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
         .padding(18.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
@@ -337,9 +346,10 @@ private fun StatusPanel(state: ReceiverState) {
         .fillMaxWidth()
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
         .padding(18.dp),
   ) {
-    Text("Latest transfer", style = MaterialTheme.typography.titleMedium)
+    PanelTitle("Receiving", if (state.isReceiving) "Transfer in progress" else "Waiting for files")
     Spacer(Modifier.height(10.dp))
     if (state.isReceiving) {
       Text(state.receivingFileName, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
@@ -380,9 +390,10 @@ private fun RecentFilesPanel(files: List<ReceivedFile>, onOpen: (ReceivedFile) -
         .fillMaxWidth()
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
         .padding(18.dp),
   ) {
-    Text("Recent files", style = MaterialTheme.typography.titleMedium)
+    PanelTitle("Files", "Recent received items")
     Spacer(Modifier.height(10.dp))
     if (files.isEmpty()) {
       Text("Received files will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -410,6 +421,25 @@ private fun RecentFilesPanel(files: List<ReceivedFile>, onOpen: (ReceivedFile) -
         HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
       }
     }
+  }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+  Text(
+    text,
+    style = MaterialTheme.typography.labelLarge,
+    color = MaterialTheme.colorScheme.primary,
+    fontWeight = FontWeight.ExtraBold,
+  )
+}
+
+@Composable
+private fun PanelTitle(title: String, subtitle: String) {
+  Column {
+    Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+    Spacer(Modifier.height(2.dp))
+    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
   }
 }
 

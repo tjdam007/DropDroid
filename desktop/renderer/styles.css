@@ -386,6 +386,19 @@ input {
   transition: width 140ms ease;
 }
 
+.retry-button {
+  justify-self: start;
+  min-height: 34px;
+  border-radius: 999px;
+  background: var(--ink);
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.retry-button:hover {
+  background: var(--accent-dark);
+}
+
 .drop-zone.dragging {
   border-color: var(--warm);
   background: var(--warm-soft);

@@ -80,6 +80,7 @@ function uploadWithProgress(file, target, hash, onProgress) {
 function addTransfer(file) {
   const transfer = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    file,
     name: file.name,
     size: file.size,
     progress: 0,
@@ -116,6 +117,11 @@ function renderTransfers() {
       </div>
       <div class="transfer-meta">${escapeHtml(transfer.detail)} · ${readableSize(transfer.size)}</div>
       <div class="progress-track"><div class="progress-fill" style="width: ${Math.round(transfer.progress * 100)}%"></div></div>
+      ${
+        transfer.status === 'Error'
+          ? `<button class="retry-button" type="button" data-transfer-id="${escapeHtml(transfer.id)}">Retry</button>`
+          : ''
+      }
     `;
     transferList.appendChild(row);
   }
@@ -212,6 +218,33 @@ async function sendFile(file) {
   }
 }
 
+async function retryTransfer(id) {
+  const transfer = transfers.find((item) => item.id === id);
+  if (!transfer?.file) return;
+  if (!selectedDevice) {
+    updateTransfer(id, { status: 'Error', detail: 'Choose a connected device before retrying' });
+    return;
+  }
+
+  updateTransfer(id, { status: 'Hashing', detail: 'Retrying securely', progress: 0.03 });
+  statusLine.textContent = `Retrying ${transfer.name}...`;
+  try {
+    const payload = window.apkDrop.mode === 'electron' ? transfer.file.path : transfer.file;
+    const result = await window.apkDrop.uploadFile(payload, selectedDevice, (progress) => {
+      updateTransfer(id, {
+        status: 'Sending',
+        detail: `${Math.round(progress * 100)}% sent`,
+        progress: Math.max(0.05, progress),
+      });
+    });
+    updateTransfer(id, { status: 'Done', detail: 'Sent to phone', progress: 1 });
+    statusLine.textContent = `Sent ${result.filename}`;
+  } catch (error) {
+    updateTransfer(id, { status: 'Error', detail: error.message || 'Could not send file' });
+    statusLine.textContent = error.message || 'Could not send file';
+  }
+}
+
 useManual.addEventListener('click', useManualDevice);
 manualIp.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') useManualDevice();
@@ -238,6 +271,12 @@ dropZone.addEventListener('drop', (event) => {
   dropZone.classList.remove('dragging');
   const [file] = event.dataTransfer.files;
   if (file) sendFile(file);
+});
+
+transferList.addEventListener('click', (event) => {
+  const button = event.target.closest('.retry-button');
+  if (!button) return;
+  retryTransfer(button.dataset.transferId);
 });
 
 window.apkDrop.onDevices((nextDevices) => {

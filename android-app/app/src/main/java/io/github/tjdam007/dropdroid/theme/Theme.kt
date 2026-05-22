@@ -11,6 +11,9 @@ private val DarkColorScheme =
     primary = Mist80,
     secondary = Coral80,
     tertiary = Blue80,
+    background = DarkInk,
+    surface = DarkSurface,
+    surfaceVariant = DarkSurfaceSoft,
   )
 
 private val LightColorScheme =
