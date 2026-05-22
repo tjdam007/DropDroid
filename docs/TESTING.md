@@ -54,7 +54,7 @@ cd android-app
 ./gradlew installDebug
 ```
 
-After installation, transfers happen over Wi-Fi.
+After installation, transfers happen over the local connection. This can be Wi-Fi, hotspot, LAN, USB tethering, or another local route where the computer can reach the phone by IP.
 
 ## Build checks
 

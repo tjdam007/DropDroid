@@ -9,7 +9,7 @@ DropDroid has two parts:
 
 The Android app starts a small local HTTP receiver on port `47881`.
 
-It also broadcasts a lightweight UDP discovery message on port `47882`, so the desktop sender can find the phone automatically on the same Wi-Fi network.
+It also broadcasts a lightweight UDP discovery message on port `47882`, so the desktop sender can find the phone automatically on the same local network when broadcast is allowed.
 
 The Android app requires QR pairing before accepting uploads. The scanned QR contains a portal id and a high-entropy shared secret. Upload requests must include signed DropDroid headers.
 
@@ -55,10 +55,18 @@ The Android receiver rejects:
 - `47881`: Android file receiver
 - `47882`: UDP discovery
 
+## Local-only networking
+
+DropDroid is local-only. File contents are never uploaded to the internet, cloud storage, GitHub, or a DropDroid server.
+
+The connection can be Wi-Fi, phone hotspot, LAN, Ethernet-to-router, USB tethering, or a local VPN/tunnel, as long as the desktop can reach the Android device by local IP.
+
+Discovery is best-effort local broadcast. Manual IP entry is the fallback when broadcast discovery is blocked.
+
 ## Current limitations
 
 - The local transfer protocol is not encrypted.
-- Discovery can be blocked by some routers or guest Wi-Fi networks.
+- Discovery can be blocked by some routers, guest networks, VPNs, or isolated access points.
 - Silent APK installation is not supported because Android requires user confirmation.
 
 Manual IP entry is included as a fallback when UDP discovery is unavailable.

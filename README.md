@@ -1,6 +1,8 @@
 # DropDroid
 
-DropDroid is an open-source local Wi-Fi file sharing tool for Android. It sends any file from a desktop browser to an Android phone on the same network.
+DropDroid is an open-source local-only file sharing tool for Android. It sends files directly from a desktop browser to an Android phone over a reachable local connection.
+
+DropDroid does not upload files to the internet, cloud storage, GitHub, or any external server. File data moves directly between your computer and phone on the local network.
 
 When the shared file is an Android APK, the phone app can optionally open Android's installer after the transfer. Android still asks the user to confirm installation.
 
@@ -18,7 +20,7 @@ DropDroid is in early development. The current build is useful for local testing
 - Transfer progress inside the Android app
 - Configurable Android save folder with a default destination
 - Recent received files with tap-to-open behavior
-- Automatic Android device discovery on the same Wi-Fi
+- Automatic Android device discovery on the same local network
 - Manual IP fallback when discovery is blocked by the network
 - APK install helper toggle inside the Android app
 
@@ -26,12 +28,14 @@ DropDroid is in early development. The current build is useful for local testing
 
 1. Open DropDroid on the Android phone.
 2. Start the desktop sender on your computer.
-3. Keep both devices on the same Wi-Fi network.
+3. Keep both devices on the same local connection.
 4. Scan the QR code shown in the desktop sender.
 5. Select the phone when it appears, or enter the phone IP manually.
 6. Drop any file into the desktop sender.
 
-The Android app receives the file over the local network. No cloud server is used.
+The Android app receives the file over the local connection. No cloud server is used.
+
+DropDroid can work over Wi-Fi, phone hotspot, LAN, Ethernet-to-router, USB tethering, or local VPN/tunnel setups when the computer can reach the phone by local IP. Network type does not matter; local reachability and secure pairing do.
 
 ## Save location and opening files
 
@@ -100,7 +104,7 @@ cd android-app
 ./gradlew installDebug
 ```
 
-After the app is installed, you can test file sharing directly over Wi-Fi from the desktop sender.
+After the app is installed, you can test file sharing directly over the local connection from the desktop sender.
 
 ## APK install behavior
 

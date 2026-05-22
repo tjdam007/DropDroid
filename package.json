@@ -1,7 +1,7 @@
 {
   "name": "dropdroid",
   "version": "0.1.0",
-  "description": "Open-source Wi-Fi file sharing for Android with an optional APK install helper.",
+  "description": "Open-source local-only file sharing for Android with an optional APK install helper.",
   "license": "MIT",
   "repository": {
     "type": "git",
