@@ -63,6 +63,8 @@ The connection can be Wi-Fi, phone hotspot, LAN, Ethernet-to-router, USB tetheri
 
 Discovery is best-effort local broadcast. Manual IP entry is the fallback when broadcast discovery is blocked.
 
+The desktop sender prefers the UDP packet source address for discovered devices because Android devices can have multiple interfaces. The Android app also displays all local IPv4 addresses so users can manually choose a reachable address when discovery selects an unreachable interface.
+
 ## Current limitations
 
 - The local transfer protocol is not encrypted.

@@ -39,10 +39,13 @@ function startDiscovery() {
       const payload = JSON.parse(buffer.toString('utf8'));
       if (payload.app !== 'DropDroid') return;
 
+      const reachableIp = remote.address;
+      const advertisedIp = payload.ip || reachableIp;
       const device = {
-        id: `${payload.ip || remote.address}:${payload.port || DEFAULT_DEVICE_PORT}`,
+        id: `${reachableIp}:${payload.port || DEFAULT_DEVICE_PORT}`,
         name: payload.name || 'Android device',
-        ip: payload.ip || remote.address,
+        ip: reachableIp,
+        advertisedIp,
         port: Number(payload.port || DEFAULT_DEVICE_PORT),
         lastSeen: Date.now(),
       };
@@ -107,9 +110,18 @@ function uploadToAndroid(request, target, filename, size, contentSha256) {
     );
 
     outbound.on('timeout', () => outbound.destroy(new Error('Timed out while sending the file')));
-    outbound.on('error', reject);
+    outbound.on('error', (error) => {
+      reject(new Error(formatConnectionError(error, target)));
+    });
     request.pipe(outbound);
   });
+}
+
+function formatConnectionError(error, target) {
+  if (['ETIMEDOUT', 'EHOSTUNREACH', 'ENETUNREACH', 'ECONNREFUSED'].includes(error.code)) {
+    return `Phone not reachable at ${target.ip}:${target.port || DEFAULT_DEVICE_PORT}. Keep DropDroid open, confirm both devices share a local connection, or try the phone's shown IP manually.`;
+  }
+  return error.message || 'Could not send file';
 }
 
 function serveStatic(response, pathname) {

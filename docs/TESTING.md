@@ -101,3 +101,13 @@ After scanning the QR:
 - Send a normal file and confirm it is received.
 - Restart the desktop sender to create a new QR session.
 - Confirm the phone requires scanning the new QR before accepting new transfers.
+
+## Connection troubleshooting checks
+
+If the desktop sender shows a timeout:
+
+- Keep the Android app open in the foreground.
+- Confirm the Android app shows "Receiver online".
+- Compare the IP in the desktop device row with the "Reachable IPs" shown on Android.
+- If the desktop picked the wrong address, enter one of the Android "Reachable IPs" in Manual IP.
+- Check that both devices are on the same local connection and that the network does not isolate devices.

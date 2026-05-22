@@ -139,13 +139,17 @@ function renderDevices() {
   signal.textContent = devices.length ? 'Device found' : 'Looking for device';
 
   if (!devices.length) {
-    deviceList.innerHTML = '<p class="empty">Open DropDroid on Android and keep both devices on the same Wi-Fi.</p>';
+    deviceList.innerHTML = '<p class="empty">Open DropDroid on Android and keep both devices on the same local connection. If discovery fails, enter one of the IPs shown on the phone.</p>';
   } else {
     deviceList.innerHTML = '';
     for (const device of devices) {
       const button = document.createElement('button');
       button.className = `device ${selectedDevice?.id === device.id ? 'selected' : ''}`;
-      button.innerHTML = `<strong>${escapeHtml(device.name)}</strong><span>${escapeHtml(device.ip)}:${device.port}</span>`;
+      const addressText =
+        device.advertisedIp && device.advertisedIp !== device.ip
+          ? `${device.ip}:${device.port} · phone shows ${device.advertisedIp}`
+          : `${device.ip}:${device.port}`;
+      button.innerHTML = `<strong>${escapeHtml(device.name)}</strong><span>${escapeHtml(addressText)}</span>`;
       button.addEventListener('click', () => {
         selectedDevice = device;
         targetText.textContent = `Sending to ${device.name} at ${device.ip}`;

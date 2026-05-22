@@ -173,13 +173,13 @@ private fun HeroPanel(state: ReceiverState) {
       Spacer(Modifier.width(14.dp))
       Column {
         Text("DropDroid", style = MaterialTheme.typography.headlineLarge, color = Color.White)
-        Text("Wi-Fi file sharing", color = Color.White.copy(alpha = 0.78f))
+        Text("Local-only file sharing", color = Color.White.copy(alpha = 0.78f))
       }
     }
 
     Spacer(Modifier.height(22.dp))
     Text(
-      "Keep this phone open and drop any file into the desktop sender.",
+      "Keep this phone open and on the same local connection as the desktop sender.",
       style = MaterialTheme.typography.titleLarge,
       color = Color.White,
     )
@@ -204,9 +204,32 @@ private fun InfoPanel(state: ReceiverState) {
     Spacer(Modifier.height(12.dp))
     InfoRow("Port", state.port.toString())
     Spacer(Modifier.height(12.dp))
-    InfoRow("Mode", "Local Wi-Fi")
+    InfoRow("Mode", "Local connection")
     Spacer(Modifier.height(12.dp))
     InfoRow("Pairing", if (state.isPaired) "Required + active" else "Required")
+    Spacer(Modifier.height(12.dp))
+    AddressBlock(state.ipAddresses)
+    Spacer(Modifier.height(12.dp))
+    Text(
+      "If desktop discovery picks a bad address or times out, type one of these IPs into Manual IP on the portal.",
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+  }
+}
+
+@Composable
+private fun AddressBlock(addresses: List<String>) {
+  Column {
+    Text("Reachable IPs", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Spacer(Modifier.height(6.dp))
+    if (addresses.isEmpty()) {
+      Text("No local address found", fontWeight = FontWeight.SemiBold)
+    } else {
+      addresses.forEach { address ->
+        Text(address, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+      }
+    }
   }
 }
 

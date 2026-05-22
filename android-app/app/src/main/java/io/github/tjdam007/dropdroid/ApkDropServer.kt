@@ -41,6 +41,7 @@ import kotlin.math.max
 data class ReceiverState(
     val running: Boolean = false,
     val ipAddress: String = "Not connected",
+    val ipAddresses: List<String> = emptyList(),
     val port: Int = ApkDropServer.PORT,
     val autoOpenApkInstaller: Boolean = false,
     val pairedPortalId: String = "",
@@ -93,6 +94,7 @@ object ApkDropServer {
             it.copy(
                 running = true,
                 ipAddress = localIpAddress(),
+                ipAddresses = localIpAddresses(),
                 autoOpenApkInstaller = prefs.getBoolean("auto_open_apk_installer", false),
                 pairedPortalId = prefs.getString("paired_portal_id", "") ?: "",
                 destinationLabel = destinationLabel(appContext),
@@ -281,8 +283,9 @@ object ApkDropServer {
             socket.broadcast = true
             while (scope.isActive) {
                 val ip = localIpAddress()
-                mutableState.update { it.copy(ipAddress = ip) }
-                val message = """{"name":"${Build.MODEL}","ip":"$ip","port":$PORT,"app":"DropDroid"}"""
+                val addresses = localIpAddresses()
+                mutableState.update { it.copy(ipAddress = ip, ipAddresses = addresses) }
+                val message = """{"name":"${Build.MODEL}","ip":"$ip","addresses":${org.json.JSONArray(addresses)},"port":$PORT,"app":"DropDroid"}"""
                 val data = message.toByteArray(StandardCharsets.UTF_8)
                 val packet = DatagramPacket(data, data.size, InetAddress.getByName("255.255.255.255"), BEACON_PORT)
                 runCatching { socket.send(packet) }
@@ -449,11 +452,17 @@ object ApkDropServer {
     }
 
     private fun localIpAddress(): String {
+        return localIpAddresses().firstOrNull() ?: "Connect locally"
+    }
+
+    private fun localIpAddresses(): List<String> {
         return NetworkInterface.getNetworkInterfaces().asSequence()
             .flatMap { it.inetAddresses.asSequence() }
             .filterIsInstance<Inet4Address>()
-            .firstOrNull { !it.isLoopbackAddress && it.hostAddress?.startsWith("169.254.") == false }
-            ?.hostAddress ?: "Connect to Wi-Fi"
+            .mapNotNull { it.hostAddress }
+            .filter { !it.startsWith("127.") && !it.startsWith("169.254.") }
+            .distinct()
+            .toList()
     }
 
     private fun BufferedInputStream.readLineAscii(): String {
