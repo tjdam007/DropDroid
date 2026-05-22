@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DropDroid</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar">
+        <div class="brand-lockup">
+          <div class="app-mark">DD</div>
+          <div>
+            <h1>DropDroid</h1>
+            <p>Fast local file sharing for Android over Wi-Fi.</p>
+          </div>
+        </div>
+        <div class="signal" id="signal">Looking for device</div>
+      </section>
+
+      <section class="workspace">
+        <aside class="device-panel">
+          <div class="panel-title">
+            <h2>Devices</h2>
+            <span id="deviceCount">0</span>
+          </div>
+          <div class="device-list" id="deviceList"></div>
+
+          <div class="manual-box">
+            <label class="manual-label" for="manualIp">Manual IP</label>
+            <div class="manual-row">
+              <input id="manualIp" placeholder="192.168.1.42" autocomplete="off" />
+              <button id="useManual">Use</button>
+            </div>
+          </div>
+        </aside>
+
+        <section class="drop-zone" id="dropZone">
+          <input id="filePicker" type="file" hidden />
+          <div class="drop-card">
+            <div class="drop-icon">+</div>
+            <div class="file-kind" id="fileKind">Any file</div>
+            <h2>Drop your file here</h2>
+            <p id="targetText">Choose a device first, or enter its IP manually.</p>
+            <button id="pickFile">Pick file</button>
+          </div>
+          <div class="apk-note">
+            APK files can open the Android installer automatically when the phone toggle is enabled.
+          </div>
+        </section>
+      </section>
+
+      <section class="status-line" id="statusLine">Ready</section>
+    </main>
+    <script src="./renderer.js"></script>
+  </body>
+</html>

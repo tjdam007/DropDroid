@@ -1,0 +1,16 @@
+{
+  "name": "dropdroid",
+  "version": "0.1.0",
+  "description": "Open-source Wi-Fi file sharing for Android with an optional APK install helper.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tjdam007/DropDroid.git"
+  },
+  "scripts": {
+    "start": "node desktop/server.js",
+    "electron:start": "electron .",
+    "android:build": "cd android-app && ./gradlew assembleDebug",
+    "android:install": "cd android-app && ./gradlew installDebug"
+  }
+}

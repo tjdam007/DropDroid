@@ -1,0 +1,21 @@
+.DS_Store
+*.iml
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Android / Gradle
+.gradle/
+build/
+android-app/.gradle/
+android-app/build/
+android-app/app/build/
+android-app/local.properties
+
+# IDE
+.idea/
+
+# Generated packages
+*.apk
+*.aab
