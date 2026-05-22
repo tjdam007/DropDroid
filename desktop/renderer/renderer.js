@@ -1,10 +1,13 @@
 let devices = [];
 let selectedDevice = null;
+let transfers = [];
 
 const deviceList = document.querySelector('#deviceList');
 const deviceCount = document.querySelector('#deviceCount');
 const dropZone = document.querySelector('#dropZone');
 const statusLine = document.querySelector('#statusLine');
+const transferCount = document.querySelector('#transferCount');
+const transferList = document.querySelector('#transferList');
 const targetText = document.querySelector('#targetText');
 const signal = document.querySelector('#signal');
 const fileKind = document.querySelector('#fileKind');
@@ -26,21 +29,9 @@ if (!window.apkDrop) {
       const response = await fetch('/api/devices');
       return response.json();
     },
-    uploadFile: async (file, target) => {
-      const response = await fetch(
-        `/api/send?ip=${encodeURIComponent(target.ip)}&port=${encodeURIComponent(target.port)}&filename=${encodeURIComponent(file.name)}`,
-        {
-          method: 'POST',
-          headers: {
-            'x-file-size': String(file.size),
-            'x-file-sha256': await fileSha256(file),
-          },
-          body: file,
-        },
-      );
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Could not send file');
-      return result;
+    uploadFile: async (file, target, onProgress) => {
+      const hash = await fileSha256(file);
+      return uploadWithProgress(file, target, hash, onProgress);
     },
     onDevices: (callback) => {
       const poll = async () => {
@@ -59,6 +50,88 @@ async function fileSha256(file) {
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
+}
+
+function uploadWithProgress(file, target, hash, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const url = `/api/send?ip=${encodeURIComponent(target.ip)}&port=${encodeURIComponent(target.port)}&filename=${encodeURIComponent(file.name)}`;
+    xhr.open('POST', url);
+    xhr.setRequestHeader('x-file-size', String(file.size));
+    xhr.setRequestHeader('x-file-sha256', hash);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress?.(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      let result = {};
+      try {
+        result = JSON.parse(xhr.responseText || '{}');
+      } catch {
+        result = {};
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(result);
+      else reject(new Error(result.error || 'Could not send file'));
+    };
+    xhr.onerror = () => reject(new Error('Network error while sending file'));
+    xhr.send(file);
+  });
+}
+
+function addTransfer(file) {
+  const transfer = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    name: file.name,
+    size: file.size,
+    progress: 0,
+    status: 'Queued',
+    detail: 'Waiting to start',
+    isApk: file.name.toLowerCase().endsWith('.apk'),
+  };
+  transfers = [transfer, ...transfers].slice(0, 30);
+  renderTransfers();
+  return transfer.id;
+}
+
+function updateTransfer(id, patch) {
+  transfers = transfers.map((transfer) => (transfer.id === id ? { ...transfer, ...patch } : transfer));
+  renderTransfers();
+}
+
+function renderTransfers() {
+  transferCount.textContent = String(transfers.length);
+  if (!transfers.length) {
+    transferList.innerHTML = '<p class="empty">Sending files will appear here.</p>';
+    return;
+  }
+
+  transferList.innerHTML = '';
+  for (const transfer of transfers) {
+    const row = document.createElement('div');
+    const stateClass = transfer.status === 'Done' ? 'done' : transfer.status === 'Error' ? 'error' : '';
+    row.className = 'transfer-row';
+    row.innerHTML = `
+      <div class="transfer-topline">
+        <div class="transfer-name" title="${escapeHtml(transfer.name)}">${escapeHtml(transfer.name)}</div>
+        <div class="transfer-state ${stateClass}">${escapeHtml(transfer.status)}</div>
+      </div>
+      <div class="transfer-meta">${escapeHtml(transfer.detail)} · ${readableSize(transfer.size)}</div>
+      <div class="progress-track"><div class="progress-fill" style="width: ${Math.round(transfer.progress * 100)}%"></div></div>
+    `;
+    transferList.appendChild(row);
+  }
+}
+
+function readableSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB'];
+  let value = bytes;
+  let unit = 'B';
+  for (const next of units) {
+    value /= 1024;
+    unit = next;
+    if (value < 1024) break;
+  }
+  return `${value.toFixed(1)} ${unit}`;
 }
 
 function renderDevices() {
@@ -111,15 +184,26 @@ async function sendFile(file) {
   }
 
   const isApk = file.name.toLowerCase().endsWith('.apk');
+  const transferId = addTransfer(file);
   fileKind.textContent = isApk ? 'Android APK' : 'Any file';
-  statusLine.textContent = `Sending ${file.name}...`;
+  statusLine.textContent = `Preparing ${file.name}...`;
   try {
     const payload = window.apkDrop.mode === 'electron' ? file.path : file;
-    const result = await window.apkDrop.uploadFile(payload, selectedDevice);
+    updateTransfer(transferId, { status: 'Hashing', detail: 'Securing file', progress: 0.03 });
+    const result = await window.apkDrop.uploadFile(payload, selectedDevice, (progress) => {
+      updateTransfer(transferId, {
+        status: 'Sending',
+        detail: `${Math.round(progress * 100)}% sent`,
+        progress: Math.max(0.05, progress),
+      });
+      statusLine.textContent = `Sending ${file.name}...`;
+    });
+    updateTransfer(transferId, { status: 'Done', detail: 'Sent to phone', progress: 1 });
     statusLine.textContent = isApk
       ? `Sent ${result.filename}. The phone can open the installer if its toggle is on.`
       : `Sent ${result.filename}`;
   } catch (error) {
+    updateTransfer(transferId, { status: 'Error', detail: error.message || 'Could not send file' });
     statusLine.textContent = error.message || 'Could not send file';
   }
 }
@@ -174,3 +258,4 @@ window.apkDrop.getPairing().then((pairing) => {
 });
 
 renderDevices();
+renderTransfers();

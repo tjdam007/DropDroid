@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -76,62 +77,74 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
         .fillMaxSize()
         .background(MaterialTheme.colorScheme.background),
   ) {
-    Column(
+    BoxWithConstraints(
       modifier =
         Modifier
           .verticalScroll(rememberScrollState())
           .padding(bottom = 18.dp),
     ) {
-      HeroPanel(state)
-
-      Spacer(Modifier.height(18.dp))
-      InfoPanel(state)
-
-      Spacer(Modifier.height(18.dp))
-      DestinationPanel(
-        state = state,
-        onPickFolder = { folderPicker.launch(null) },
-        onUseDefault = { ApkDropServer.resetDestination(context) },
-      )
-
-      Spacer(Modifier.height(18.dp))
-      FeaturePanel(
-        title = if (state.isPaired) "Secure portal paired" else "Pair secure portal",
-        body = if (state.isPaired) "Only the paired portal can send files to this phone." else "Scan the QR shown on the desktop portal before receiving files.",
-        action = {
-          Button(onClick = { context.startActivity(Intent(context, QrPairingActivity::class.java)) }) {
-            Text(if (state.isPaired) "Rescan" else "Scan QR")
-          }
-        },
-      )
-
-      Spacer(Modifier.height(10.dp))
-      FeaturePanel(
-        title = "APK install helper",
-        body = "Share any file normally. When the file is an APK, this toggle opens Android's installer after the transfer.",
-        action = {
-          Switch(
-            checked = state.autoOpenApkInstaller,
-            onCheckedChange = { ApkDropServer.setAutoOpenApkInstaller(context, it) },
-          )
-        },
-      )
-
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        Spacer(Modifier.height(10.dp))
-        OutlinedButton(
-          onClick = { ApkDropServer.openInstallPermissionSettings(context) },
+      if (maxWidth >= 720.dp) {
+        Row(
           modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(18.dp),
+          verticalAlignment = Alignment.Top,
         ) {
-          Text("Allow installs from DropDroid")
+          Column(modifier = Modifier.weight(1f)) {
+            HeroPanel(state)
+
+            Spacer(Modifier.height(18.dp))
+            InfoPanel(state)
+
+            Spacer(Modifier.height(18.dp))
+            DestinationPanel(
+              state = state,
+              onPickFolder = { folderPicker.launch(null) },
+              onUseDefault = { ApkDropServer.resetDestination(context) },
+            )
+          }
+
+          Column(modifier = Modifier.weight(1f)) {
+            ControlsSection(
+              state = state,
+              onScanQr = { context.startActivity(Intent(context, QrPairingActivity::class.java)) },
+              onAllowApkInstalls = { ApkDropServer.openInstallPermissionSettings(context) },
+            )
+
+            Spacer(Modifier.height(18.dp))
+            StatusPanel(state)
+
+            Spacer(Modifier.height(18.dp))
+            RecentFilesPanel(state.receivedFiles, onOpen = { ApkDropServer.openReceivedFile(context, it) })
+          }
+        }
+      } else {
+        Column {
+          HeroPanel(state)
+
+          Spacer(Modifier.height(18.dp))
+          InfoPanel(state)
+
+          Spacer(Modifier.height(18.dp))
+          DestinationPanel(
+            state = state,
+            onPickFolder = { folderPicker.launch(null) },
+            onUseDefault = { ApkDropServer.resetDestination(context) },
+          )
+
+          Spacer(Modifier.height(18.dp))
+          ControlsSection(
+            state = state,
+            onScanQr = { context.startActivity(Intent(context, QrPairingActivity::class.java)) },
+            onAllowApkInstalls = { ApkDropServer.openInstallPermissionSettings(context) },
+          )
+
+          Spacer(Modifier.height(18.dp))
+          StatusPanel(state)
+
+          Spacer(Modifier.height(18.dp))
+          RecentFilesPanel(state.receivedFiles, onOpen = { ApkDropServer.openReceivedFile(context, it) })
         }
       }
-
-      Spacer(Modifier.height(18.dp))
-      StatusPanel(state)
-
-      Spacer(Modifier.height(18.dp))
-      RecentFilesPanel(state.receivedFiles, onOpen = { ApkDropServer.openReceivedFile(context, it) })
     }
   }
 }
@@ -217,6 +230,44 @@ private fun DestinationPanel(state: ReceiverState, onPickFolder: () -> Unit, onU
       }
       TextButton(onClick = onUseDefault) {
         Text("Use default")
+      }
+    }
+  }
+}
+
+@Composable
+private fun ControlsSection(state: ReceiverState, onScanQr: () -> Unit, onAllowApkInstalls: () -> Unit) {
+  val context = LocalContext.current
+  Column {
+    FeaturePanel(
+      title = if (state.isPaired) "Secure portal paired" else "Pair secure portal",
+      body = if (state.isPaired) "Only the paired portal can send files to this phone." else "Scan the QR shown on the desktop portal before receiving files.",
+      action = {
+        Button(onClick = onScanQr) {
+          Text(if (state.isPaired) "Rescan" else "Scan QR")
+        }
+      },
+    )
+
+    Spacer(Modifier.height(10.dp))
+    FeaturePanel(
+      title = "APK install helper",
+      body = "Share any file normally. When the file is an APK, this toggle opens Android's installer after the transfer.",
+      action = {
+        Switch(
+          checked = state.autoOpenApkInstaller,
+          onCheckedChange = { ApkDropServer.setAutoOpenApkInstaller(context, it) },
+        )
+      },
+    )
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      Spacer(Modifier.height(10.dp))
+      OutlinedButton(
+        onClick = onAllowApkInstalls,
+        modifier = Modifier.fillMaxWidth(),
+      ) {
+        Text("Allow installs from DropDroid")
       }
     }
   }

@@ -12,6 +12,7 @@ DropDroid is in early development. The current build is useful for local testing
 
 - Android receiver app built with Kotlin and Jetpack Compose
 - Desktop sender UI that runs locally in the browser
+- Desktop sending queue with per-file progress rows
 - QR-based secure pairing between the portal and phone
 - HMAC-signed transfers with timestamp and replay protection
 - Transfer progress inside the Android app
@@ -37,6 +38,12 @@ The Android app receives the file over the local network. No cloud server is use
 DropDroid saves files to a default app Downloads / DropDroid folder. Users can choose another Android folder from the app using the system folder picker.
 
 Received files appear in the recent files list. Tapping a file asks Android to open it with the default compatible app.
+
+## Multiscreen support
+
+The desktop sender adapts across wide desktop, laptop, and mobile browser widths. On wide screens it shows pairing/devices, drop target, and sending progress as separate columns.
+
+The Android app stays single-column on phones and switches to a two-pane layout on wider screens such as tablets and landscape displays.
 
 ## Secure pairing
 
