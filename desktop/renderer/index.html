@@ -40,7 +40,13 @@
             <label class="manual-label" for="manualIp">Manual IP</label>
             <div class="manual-row">
               <input id="manualIp" placeholder="192.168.1.42" autocomplete="off" />
-              <button id="useManual">Use</button>
+              <button class="icon-button" id="useManual">
+                <svg class="lucide" aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M5 12h14" />
+                  <path d="m12 5 7 7-7 7" />
+                </svg>
+                <span>Use</span>
+              </button>
             </div>
           </div>
         </aside>
@@ -48,11 +54,25 @@
         <section class="drop-zone" id="dropZone">
           <input id="filePicker" type="file" hidden />
           <div class="drop-card">
-            <div class="drop-icon">+</div>
+            <div class="drop-icon">
+              <svg class="lucide" aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="m17 8-5-5-5 5" />
+                <path d="M12 3v12" />
+              </svg>
+            </div>
             <div class="file-kind" id="fileKind">Any file</div>
             <h2>Drop your file here</h2>
           <p id="targetText">Scan the pairing QR on your phone, then choose the device.</p>
-            <button id="pickFile">Pick file</button>
+            <button class="icon-button" id="pickFile">
+              <svg class="lucide" aria-hidden="true" viewBox="0 0 24 24">
+                <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />
+                <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+                <path d="M12 18v-6" />
+                <path d="m9 15 3-3 3 3" />
+              </svg>
+              <span>Pick file</span>
+            </button>
           </div>
           <div class="apk-note">
             APK files can open the Android installer automatically when the phone toggle is enabled.

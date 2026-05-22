@@ -25,6 +25,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -44,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,7 @@ import io.github.tjdam007.dropdroid.AppThemeController
 import io.github.tjdam007.dropdroid.AppThemePreference
 import io.github.tjdam007.dropdroid.BuildConfig
 import io.github.tjdam007.dropdroid.QrPairingActivity
+import io.github.tjdam007.dropdroid.R
 import io.github.tjdam007.dropdroid.ReceivedFile
 import io.github.tjdam007.dropdroid.ReceiverState
 import io.github.tjdam007.dropdroid.theme.MyApplicationTheme
@@ -67,11 +70,11 @@ fun MainScreen(
   MainScreen(state = state, modifier = modifier)
 }
 
-private enum class AppTab(val label: String, val icon: String) {
-  Receive("Receive", "R"),
-  Connect("Connect", "C"),
-  Files("Files", "F"),
-  Settings("Settings", "S"),
+private enum class AppTab(val label: String, val iconRes: Int) {
+  Receive("Receive", R.drawable.ic_lucide_download),
+  Connect("Connect", R.drawable.ic_lucide_qr_code),
+  Files("Files", R.drawable.ic_lucide_files),
+  Settings("Settings", R.drawable.ic_lucide_settings),
 }
 
 @Composable
@@ -99,7 +102,10 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
             selected = selectedTab == tab.name,
             onClick = { selectedTab = tab.name },
             icon = {
-              Text(tab.icon, fontWeight = FontWeight.ExtraBold)
+              Icon(
+                painter = painterResource(tab.iconRes),
+                contentDescription = null,
+              )
             },
             label = { Text(tab.label) },
           )
@@ -292,9 +298,13 @@ private fun DestinationPanel(state: ReceiverState, onPickFolder: () -> Unit, onU
     Spacer(Modifier.height(14.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
       OutlinedButton(onClick = onPickFolder) {
+        Icon(painter = painterResource(R.drawable.ic_lucide_folder), contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
         Text("Choose folder")
       }
       TextButton(onClick = onUseDefault) {
+        Icon(painter = painterResource(R.drawable.ic_lucide_refresh), contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
         Text("Use default")
       }
     }
@@ -333,6 +343,8 @@ private fun PairingPanel(state: ReceiverState, onScanQr: () -> Unit) {
     body = if (state.isPaired) "Only the paired portal can send files to this phone." else "Scan the QR shown on the desktop portal before receiving files.",
     action = {
       Button(onClick = onScanQr) {
+        Icon(painter = painterResource(R.drawable.ic_lucide_qr_code), contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
         Text(if (state.isPaired) "Rescan" else "Scan QR")
       }
     },
@@ -359,6 +371,8 @@ private fun ApkHelperPanel(state: ReceiverState, onAllowApkInstalls: () -> Unit)
       onClick = onAllowApkInstalls,
       modifier = Modifier.fillMaxWidth(),
     ) {
+      Icon(painter = painterResource(R.drawable.ic_lucide_external_link), contentDescription = null, modifier = Modifier.size(18.dp))
+      Spacer(Modifier.width(8.dp))
       Text("Allow installs from DropDroid")
     }
   }
@@ -388,6 +402,8 @@ private fun AboutPanel() {
       },
       modifier = Modifier.fillMaxWidth(),
     ) {
+      Icon(painter = painterResource(R.drawable.ic_lucide_external_link), contentDescription = null, modifier = Modifier.size(18.dp))
+      Spacer(Modifier.width(8.dp))
       Text("View GitHub repository")
     }
   }

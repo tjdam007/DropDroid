@@ -50,6 +50,25 @@ button:hover {
   background: var(--accent-dark);
 }
 
+.icon-button,
+.retry-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.lucide {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
 .app-shell {
   display: flex;
   min-height: 100vh;
@@ -431,9 +450,12 @@ input {
   border-radius: 22px;
   background: var(--soft);
   color: var(--accent-dark);
-  font-size: 44px;
-  font-weight: 300;
-  line-height: 1;
+}
+
+.drop-icon .lucide {
+  width: 34px;
+  height: 34px;
+  stroke-width: 1.8;
 }
 
 .file-kind {
