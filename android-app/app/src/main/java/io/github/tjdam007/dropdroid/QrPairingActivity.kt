@@ -61,12 +61,15 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import io.github.tjdam007.dropdroid.design.DropRadius
 import io.github.tjdam007.dropdroid.design.DropSpacing
 import io.github.tjdam007.dropdroid.theme.MyApplicationTheme
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class QrPairingActivity : ComponentActivity() {
   private var paired = false
   private var hasCameraPermission by mutableStateOf(false)
   private var cameraDenied by mutableStateOf(false)
   private var scanError by mutableStateOf<String?>(null)
+  private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
   private val requestCameraPermission =
     registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -98,6 +101,11 @@ class QrPairingActivity : ComponentActivity() {
     }
   }
 
+  override fun onDestroy() {
+    cameraExecutor.shutdown()
+    super.onDestroy()
+  }
+
   private fun bindScanner(previewView: PreviewView) {
     val options =
       BarcodeScannerOptions.Builder()
@@ -106,11 +114,11 @@ class QrPairingActivity : ComponentActivity() {
     val scanner = BarcodeScanning.getClient(options)
     val controller = LifecycleCameraController(this)
     controller.setImageAnalysisAnalyzer(
-      ContextCompat.getMainExecutor(this),
+      cameraExecutor,
       MlKitAnalyzer(
         listOf(scanner),
         CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED,
-        ContextCompat.getMainExecutor(this),
+        cameraExecutor,
       ) { result ->
         if (paired) return@MlKitAnalyzer
         val rawValue = result?.getValue(scanner)?.firstOrNull()?.rawValue ?: return@MlKitAnalyzer
@@ -118,14 +126,20 @@ class QrPairingActivity : ComponentActivity() {
           .onSuccess { success ->
             if (success) {
               paired = true
-              window.decorView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-              finish()
+              runOnUiThread {
+                window.decorView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                finish()
+              }
             } else {
-              scanError = "Invalid QR. Use the code shown on the DropDroid desktop portal."
+              runOnUiThread {
+                scanError = "Invalid QR. Use the code shown on the DropDroid desktop portal."
+              }
             }
           }
           .onFailure {
-            scanError = "Could not read this QR. Try scanning the desktop portal again."
+            runOnUiThread {
+              scanError = "Could not read this QR. Try scanning the desktop portal again."
+            }
           }
       },
     )
