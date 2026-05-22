@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.heightIn
@@ -19,6 +20,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -78,6 +81,8 @@ import io.github.tjdam007.dropdroid.ui.components.EmptyState
 import io.github.tjdam007.dropdroid.ui.components.StatusPill
 import io.github.tjdam007.dropdroid.ui.components.StatusVariant
 import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.util.Date
 
 @Composable
 fun MainScreen(
@@ -136,35 +141,48 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
       }
     },
   ) { paddingValues ->
-    Column(
-      modifier =
-        Modifier
-          .fillMaxSize()
-          .background(MaterialTheme.colorScheme.background)
-          .verticalScroll(rememberScrollState())
-          .padding(paddingValues)
-          .padding(horizontal = DropSpacing.lg, vertical = DropSpacing.md),
-    ) {
-      when (currentTab) {
-        AppTab.Home ->
-          HomeTab(
-            state = state,
-            onScanQr = { context.startActivity(Intent(context, QrPairingActivity::class.java)) },
-            onCopyIp = { ip ->
-              clipboardManager.setText(AnnotatedString(ip))
-              scope.launch { snackbarHostState.showSnackbar("IP copied: $ip") }
-            },
-          )
-        AppTab.Files -> FilesTab(state.receivedFiles, onOpen = { ApkDropServer.openReceivedFile(context, it) })
-        AppTab.Settings ->
-          SettingsTab(
-            state = state,
-            onPickFolder = { folderPicker.launch(null) },
-            onUseDefault = { ApkDropServer.resetDestination(context) },
-            onAllowApkInstalls = { ApkDropServer.openInstallPermissionSettings(context) },
-          )
-      }
-      Spacer(Modifier.height(DropSpacing.bottomNavClearance))
+    when (currentTab) {
+      AppTab.Files ->
+        FilesTab(
+          files = state.receivedFiles,
+          onOpen = { ApkDropServer.openReceivedFile(context, it) },
+          modifier =
+            Modifier
+              .fillMaxSize()
+              .background(MaterialTheme.colorScheme.background)
+              .padding(paddingValues),
+        )
+      else ->
+        Column(
+          modifier =
+            Modifier
+              .fillMaxSize()
+              .background(MaterialTheme.colorScheme.background)
+              .verticalScroll(rememberScrollState())
+              .padding(paddingValues)
+              .padding(horizontal = DropSpacing.lg, vertical = DropSpacing.md),
+        ) {
+          when (currentTab) {
+            AppTab.Home ->
+              HomeTab(
+                state = state,
+                onScanQr = { context.startActivity(Intent(context, QrPairingActivity::class.java)) },
+                onCopyIp = { ip ->
+                  clipboardManager.setText(AnnotatedString(ip))
+                  scope.launch { snackbarHostState.showSnackbar("IP copied: $ip") }
+                },
+              )
+            AppTab.Settings ->
+              SettingsTab(
+                state = state,
+                onPickFolder = { folderPicker.launch(null) },
+                onUseDefault = { ApkDropServer.resetDestination(context) },
+                onAllowApkInstalls = { ApkDropServer.openInstallPermissionSettings(context) },
+              )
+            AppTab.Files -> Unit
+          }
+          Spacer(Modifier.height(DropSpacing.bottomNavClearance))
+        }
     }
   }
 }
@@ -199,10 +217,45 @@ private fun SettingsTab(
 }
 
 @Composable
-private fun FilesTab(files: List<ReceivedFile>, onOpen: (ReceivedFile) -> Unit) {
-  ScreenTitle("Files", "Open recent transfers with Android apps.")
-  Spacer(Modifier.height(DropSpacing.md))
-  RecentFilesPanel(files, onOpen)
+private fun FilesTab(files: List<ReceivedFile>, onOpen: (ReceivedFile) -> Unit, modifier: Modifier = Modifier) {
+  LazyColumn(
+    modifier = modifier,
+    contentPadding =
+      PaddingValues(
+        start = DropSpacing.lg,
+        top = DropSpacing.md,
+        end = DropSpacing.lg,
+        bottom = DropSpacing.bottomNavClearance + DropSpacing.xl,
+      ),
+    verticalArrangement = Arrangement.spacedBy(DropSpacing.md),
+  ) {
+    item {
+      ScreenTitle("Files", "Open recent transfers with Android apps.")
+    }
+
+    if (files.isEmpty()) {
+      item {
+        DropPanel(variant = DropPanelVariant.Elevated) {
+          EmptyState(
+            title = "No files yet",
+            body = "Received files will appear here as soon as your paired desktop sends them.",
+            iconRes = R.drawable.ic_lucide_files,
+          )
+        }
+      }
+    } else {
+      item {
+        Text(
+          "${files.size} recent ${if (files.size == 1) "item" else "items"}",
+          style = MaterialTheme.typography.labelLarge,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+      items(files, key = { "${it.uri}-${it.name}-${it.savedAtMillis}" }) { file ->
+        ReceivedFileRow(file = file, onOpen = { onOpen(file) })
+      }
+    }
+  }
 }
 
 @Composable
@@ -498,38 +551,83 @@ private fun StatusPanel(state: ReceiverState) {
 }
 
 @Composable
-private fun RecentFilesPanel(files: List<ReceivedFile>, onOpen: (ReceivedFile) -> Unit) {
-  DropPanel {
-    PanelTitle("Files", "Recent received items")
-    Spacer(Modifier.height(DropSpacing.md))
-    if (files.isEmpty()) {
-      Text("Received files will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-    } else {
-      files.forEachIndexed { index, file ->
-        Row(
-          modifier =
-            Modifier
-              .fillMaxWidth()
-              .clip(RoundedCornerShape(DropRadius.sm))
-              .clickable { onOpen(file) }
-              .padding(vertical = DropSpacing.md),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically,
-        ) {
-          Column(modifier = Modifier.weight(1f)) {
-            Text(file.name, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(DropSpacing.xs))
-            Text(file.sizeBytes.toReadableSize(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-          }
-          Text("Open", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+private fun ReceivedFileRow(file: ReceivedFile, onOpen: () -> Unit) {
+  DropPanel(
+    modifier = Modifier.clickable(onClick = onOpen),
+    variant = DropPanelVariant.Elevated,
+    contentPadding = PaddingValues(DropSpacing.md),
+  ) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Box(
+        modifier =
+          Modifier
+            .size(48.dp)
+            .clip(RoundedCornerShape(DropRadius.md))
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center,
+      ) {
+        Icon(
+          painter = painterResource(fileIconRes(file)),
+          contentDescription = null,
+          modifier = Modifier.size(24.dp),
+          tint = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+      }
+      Spacer(Modifier.width(DropSpacing.md))
+      Column(modifier = Modifier.weight(1f)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text(
+            file.name,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+          )
+          Spacer(Modifier.width(DropSpacing.sm))
+          StatusPill(text = fileTypeLabel(file), variant = StatusVariant.Neutral)
         }
-        if (index != files.lastIndex) {
-          HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-        }
+        Spacer(Modifier.height(DropSpacing.xs))
+        Text(
+          "${file.sizeBytes.toReadableSize()} • ${file.savedAtLabel()}",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
+      Spacer(Modifier.width(DropSpacing.sm))
+      IconButton(onClick = onOpen) {
+        Icon(
+          painter = painterResource(R.drawable.ic_lucide_external_link),
+          contentDescription = "Open ${file.name}",
+          modifier = Modifier.size(20.dp),
+        )
       }
     }
   }
 }
+
+private fun fileIconRes(file: ReceivedFile): Int =
+  if (file.mimeType == "application/vnd.android.package-archive" || file.name.endsWith(".apk", ignoreCase = true)) {
+    R.drawable.ic_lucide_download
+  } else {
+    R.drawable.ic_lucide_files
+  }
+
+private fun fileTypeLabel(file: ReceivedFile): String =
+  when {
+    file.mimeType == "application/vnd.android.package-archive" || file.name.endsWith(".apk", ignoreCase = true) -> "APK"
+    file.mimeType.startsWith("image/") -> "Image"
+    file.mimeType.startsWith("video/") -> "Video"
+    file.mimeType.startsWith("audio/") -> "Audio"
+    file.mimeType == "application/pdf" || file.name.endsWith(".pdf", ignoreCase = true) -> "PDF"
+    else -> "File"
+  }
+
+private fun ReceivedFile.savedAtLabel(): String =
+  if (savedAtMillis <= 0L) {
+    "Just now"
+  } else {
+    DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(savedAtMillis))
+  }
 
 @Composable
 private fun PanelTitle(title: String, subtitle: String) {
