@@ -15,6 +15,29 @@ npm start
 6. Scan the QR shown in the desktop sender.
 7. Select the Android device or enter the phone IP manually.
 8. Drop a file into the sender.
+9. Watch the progress indicator in the Android app.
+10. Tap the received file in the recent files list and confirm Android opens it with a compatible app.
+
+## Save folder checks
+
+Default folder:
+
+- Send a file without choosing a folder.
+- Confirm the file appears in the Android recent files list.
+- Tap the file and confirm it opens.
+
+Custom folder:
+
+- Tap "Choose folder" in the Android app.
+- Pick a folder through Android's system folder picker.
+- Send a file.
+- Confirm the file is saved to the selected folder.
+
+Reset:
+
+- Tap "Use default".
+- Send another file.
+- Confirm DropDroid returns to the default app Downloads / DropDroid destination.
 
 ## Developer device setup
 

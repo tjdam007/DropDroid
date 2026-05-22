@@ -14,6 +14,9 @@ DropDroid is in early development. The current build is useful for local testing
 - Desktop sender UI that runs locally in the browser
 - QR-based secure pairing between the portal and phone
 - HMAC-signed transfers with timestamp and replay protection
+- Transfer progress inside the Android app
+- Configurable Android save folder with a default destination
+- Recent received files with tap-to-open behavior
 - Automatic Android device discovery on the same Wi-Fi
 - Manual IP fallback when discovery is blocked by the network
 - APK install helper toggle inside the Android app
@@ -28,6 +31,12 @@ DropDroid is in early development. The current build is useful for local testing
 6. Drop any file into the desktop sender.
 
 The Android app receives the file over the local network. No cloud server is used.
+
+## Save location and opening files
+
+DropDroid saves files to a default app Downloads / DropDroid folder. Users can choose another Android folder from the app using the system folder picker.
+
+Received files appear in the recent files list. Tapping a file asks Android to open it with the default compatible app.
 
 ## Secure pairing
 

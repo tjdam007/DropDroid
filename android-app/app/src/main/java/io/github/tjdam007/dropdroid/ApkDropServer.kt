@@ -6,7 +6,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import android.webkit.MimeTypeMap
 import androidx.core.content.FileProvider
+import androidx.documentfile.provider.DocumentFile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,6 +19,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.BufferedInputStream
 import java.io.File
+import java.io.OutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.Inet4Address
@@ -41,12 +44,31 @@ data class ReceiverState(
     val port: Int = ApkDropServer.PORT,
     val autoOpenApkInstaller: Boolean = false,
     val pairedPortalId: String = "",
+    val destinationLabel: String = "Default: app Downloads / DropDroid",
+    val receivingFileName: String = "",
+    val receivingBytes: Long = 0L,
+    val receivingTotalBytes: Long = 0L,
+    val receivedFiles: List<ReceivedFile> = emptyList(),
     val lastFileName: String = "",
     val lastMessage: String = "Waiting for files",
 ) {
     val isPaired: Boolean
         get() = pairedPortalId.isNotBlank()
+
+    val isReceiving: Boolean
+        get() = receivingFileName.isNotBlank()
+
+    val progress: Float
+        get() = if (receivingTotalBytes <= 0L) 0f else (receivingBytes.toFloat() / receivingTotalBytes.toFloat()).coerceIn(0f, 1f)
 }
+
+data class ReceivedFile(
+    val name: String,
+    val uri: String,
+    val mimeType: String,
+    val sizeBytes: Long,
+    val savedAtMillis: Long,
+)
 
 object ApkDropServer {
     const val PORT = 47881
@@ -73,6 +95,7 @@ object ApkDropServer {
                 ipAddress = localIpAddress(),
                 autoOpenApkInstaller = prefs.getBoolean("auto_open_apk_installer", false),
                 pairedPortalId = prefs.getString("paired_portal_id", "") ?: "",
+                destinationLabel = destinationLabel(appContext),
                 lastMessage = if (prefs.getString("paired_secret", "").isNullOrBlank()) "Scan the portal QR to pair" else "Ready for paired transfers",
             )
         }
@@ -88,6 +111,34 @@ object ApkDropServer {
             .putBoolean("auto_open_apk_installer", enabled)
             .apply()
         mutableState.update { it.copy(autoOpenApkInstaller = enabled) }
+    }
+
+    fun setDestinationTree(context: Context, uri: Uri) {
+        context.applicationContext
+            .getSharedPreferences("apk_drop", Context.MODE_PRIVATE)
+            .edit()
+            .putString("destination_tree_uri", uri.toString())
+            .apply()
+        mutableState.update {
+            it.copy(
+                destinationLabel = "Selected folder",
+                lastMessage = "Save folder updated",
+            )
+        }
+    }
+
+    fun resetDestination(context: Context) {
+        context.applicationContext
+            .getSharedPreferences("apk_drop", Context.MODE_PRIVATE)
+            .edit()
+            .remove("destination_tree_uri")
+            .apply()
+        mutableState.update {
+            it.copy(
+                destinationLabel = destinationLabel(context.applicationContext),
+                lastMessage = "Using default save folder",
+            )
+        }
     }
 
     fun pairWithPortal(context: Context, qrPayload: String): Boolean {
@@ -174,25 +225,53 @@ object ApkDropServer {
                 output.writeHttp(401, auth.message)
                 return
             }
-            val target = incomingDirectory(context).resolve(filename)
-            val actualHash = copyBody(input, target, contentLength)
+            val target = createSaveTarget(context, filename)
+            mutableState.update {
+                it.copy(
+                    receivingFileName = filename,
+                    receivingBytes = 0L,
+                    receivingTotalBytes = contentLength,
+                    lastMessage = "Receiving $filename",
+                )
+            }
+            val actualHash = copyBody(input, target.outputStream, contentLength, filename)
             if (!actualHash.equals(headers["x-dropdroid-content-sha256"], ignoreCase = true)) {
                 target.delete()
+                mutableState.update {
+                    it.copy(
+                        receivingFileName = "",
+                        receivingBytes = 0L,
+                        receivingTotalBytes = 0L,
+                        lastMessage = "File hash mismatch",
+                    )
+                }
                 output.writeHttp(400, "File hash mismatch")
                 return
             }
 
+            val savedFile =
+                ReceivedFile(
+                    name = target.name,
+                    uri = target.uri.toString(),
+                    mimeType = target.mimeType,
+                    sizeBytes = contentLength,
+                    savedAtMillis = System.currentTimeMillis(),
+                )
             mutableState.update {
                 it.copy(
                     ipAddress = localIpAddress(),
-                    lastFileName = filename,
+                    receivingFileName = "",
+                    receivingBytes = 0L,
+                    receivingTotalBytes = 0L,
+                    lastFileName = target.name,
                     lastMessage = "Received ${target.name} (${contentLength.toReadableSize()})",
+                    receivedFiles = (listOf(savedFile) + it.receivedFiles).take(20),
                 )
             }
             output.writeHttp(200, "Saved")
 
             if (filename.endsWith(".apk", ignoreCase = true) && mutableState.value.autoOpenApkInstaller) {
-                openApkInstaller(context, target)
+                openUri(context, target.uri, "application/vnd.android.package-archive")
             }
         }
     }
@@ -212,21 +291,78 @@ object ApkDropServer {
         }
     }
 
-    private fun openApkInstaller(context: Context, apk: File) {
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", apk)
+    fun openReceivedFile(context: Context, file: ReceivedFile) {
+        openUri(context, Uri.parse(file.uri), file.mimeType)
+    }
+
+    private fun openUri(context: Context, uri: Uri, mimeType: String) {
         val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
+            setDataAndType(uri, mimeType)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         runCatching { context.startActivity(intent) }
             .onFailure { throwable ->
-                mutableState.update { it.copy(lastMessage = "APK saved. Installer did not open: ${throwable.message}") }
+                mutableState.update { it.copy(lastMessage = "No app found to open file: ${throwable.message}") }
             }
     }
 
     private fun incomingDirectory(context: Context): File {
         return File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "APKDrop").also { it.mkdirs() }
+    }
+
+    private data class SaveTarget(
+        val name: String,
+        val uri: Uri,
+        val mimeType: String,
+        val outputStream: OutputStream,
+        val delete: () -> Unit,
+    )
+
+    private fun createSaveTarget(context: Context, filename: String): SaveTarget {
+        val mimeType = mimeTypeFor(filename)
+        val treeUri = context.getSharedPreferences("apk_drop", Context.MODE_PRIVATE).getString("destination_tree_uri", null)
+        if (!treeUri.isNullOrBlank()) {
+            val tree = DocumentFile.fromTreeUri(context, Uri.parse(treeUri))
+            val document = tree?.createFile(mimeType, filename)
+            val stream = document?.uri?.let { context.contentResolver.openOutputStream(it) }
+            if (document != null && stream != null) {
+                return SaveTarget(
+                    name = document.name ?: filename,
+                    uri = document.uri,
+                    mimeType = mimeType,
+                    outputStream = stream,
+                    delete = { document.delete() },
+                )
+            }
+        }
+
+        val target = uniqueFile(incomingDirectory(context), filename)
+        return SaveTarget(
+            name = target.name,
+            uri = FileProvider.getUriForFile(context, "${context.packageName}.files", target),
+            mimeType = mimeType,
+            outputStream = target.outputStream(),
+            delete = { target.delete() },
+        )
+    }
+
+    private fun uniqueFile(directory: File, filename: String): File {
+        val baseName = filename.substringBeforeLast('.', filename)
+        val extension = filename.substringAfterLast('.', "")
+        var candidate = directory.resolve(filename)
+        var index = 1
+        while (candidate.exists()) {
+            val nextName = if (extension.isBlank()) "$baseName-$index" else "$baseName-$index.$extension"
+            candidate = directory.resolve(nextName)
+            index += 1
+        }
+        return candidate
+    }
+
+    private fun destinationLabel(context: Context): String {
+        val treeUri = context.getSharedPreferences("apk_drop", Context.MODE_PRIVATE).getString("destination_tree_uri", null)
+        return if (treeUri.isNullOrBlank()) "Default: app Downloads / DropDroid" else "Selected folder"
     }
 
     private data class AuthResult(val ok: Boolean, val message: String = "OK")
@@ -281,17 +417,32 @@ object ApkDropServer {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(message.toByteArray(StandardCharsets.UTF_8)))
     }
 
-    private fun copyBody(input: BufferedInputStream, target: File, contentLength: Long): String {
+    private fun copyBody(input: BufferedInputStream, target: OutputStream, contentLength: Long, filename: String): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        target.outputStream().use { output ->
+        target.use { output ->
             val buffer = ByteArray(BUFFER_SIZE)
             var remaining = contentLength
+            var received = 0L
+            var lastProgressAt = 0L
             while (remaining > 0) {
                 val read = input.read(buffer, 0, max(1, minOf(buffer.size.toLong(), remaining).toInt()))
                 if (read == -1) break
                 output.write(buffer, 0, read)
                 digest.update(buffer, 0, read)
                 remaining -= read
+                received += read
+                val now = System.currentTimeMillis()
+                if (now - lastProgressAt > 250L || remaining == 0L) {
+                    lastProgressAt = now
+                    mutableState.update {
+                        it.copy(
+                            receivingFileName = filename,
+                            receivingBytes = received,
+                            receivingTotalBytes = contentLength,
+                            lastMessage = "Receiving $filename (${received.toReadableSize()} / ${contentLength.toReadableSize()})",
+                        )
+                    }
+                }
             }
         }
         return digest.digest().joinToString("") { "%02x".format(it) }
@@ -333,6 +484,12 @@ object ApkDropServer {
 
     private fun String.safeFileName(): String {
         return replace(Regex("""[\\/:*?"<>|]"""), "_").ifBlank { "shared-file" }
+    }
+
+    private fun mimeTypeFor(filename: String): String {
+        if (filename.endsWith(".apk", ignoreCase = true)) return "application/vnd.android.package-archive"
+        val extension = filename.substringAfterLast('.', "").lowercase(Locale.US)
+        return MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension) ?: "application/octet-stream"
     }
 
     private fun Long.toReadableSize(): String {

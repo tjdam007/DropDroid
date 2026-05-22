@@ -13,7 +13,11 @@ It also broadcasts a lightweight UDP discovery message on port `47882`, so the d
 
 The Android app requires QR pairing before accepting uploads. The scanned QR contains a portal id and a high-entropy shared secret. Upload requests must include signed DropDroid headers.
 
-Received files are written to the app's external files download directory. APK files are treated like normal files unless the APK install helper toggle is enabled.
+Received files are written to the app's default external files download directory unless the user chooses a folder through Android's system folder picker. Chosen folders use persisted Storage Access Framework permissions.
+
+The receiver reports progress through `ReceiverState` while bytes are streaming. Completed files are added to an in-memory recent files list, and tapping a file opens it with Android's default app resolution.
+
+APK files are treated like normal files unless the APK install helper toggle is enabled.
 
 When the toggle is enabled and the incoming file ends with `.apk`, DropDroid opens Android's package installer with a `FileProvider` URI. Android still controls the final installation confirmation.
 
