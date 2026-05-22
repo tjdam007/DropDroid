@@ -14,7 +14,8 @@ Send the maintainer a private report through GitHub security advisories if enabl
 
 - DropDroid is designed for trusted local Wi-Fi networks.
 - Files are transferred over the local network without cloud storage.
-- The current local protocol is not encrypted.
+- Uploads require QR pairing and HMAC-signed transfer headers.
+- The current local protocol authenticates transfers but does not encrypt file contents.
 - Android always requires user confirmation before installing APK files.
 
 Avoid using DropDroid on untrusted public networks until encrypted pairing is added.

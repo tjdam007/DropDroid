@@ -21,6 +21,15 @@
 
       <section class="workspace">
         <aside class="device-panel">
+          <div class="pair-panel">
+            <div>
+              <h2>Pair phone</h2>
+              <p>Scan this QR inside DropDroid before sending files.</p>
+            </div>
+            <div class="qr-box" id="qrBox">Loading QR</div>
+            <div class="pair-id" id="pairId">Creating secure session...</div>
+          </div>
+
           <div class="panel-title">
             <h2>Devices</h2>
             <span id="deviceCount">0</span>
@@ -42,7 +51,7 @@
             <div class="drop-icon">+</div>
             <div class="file-kind" id="fileKind">Any file</div>
             <h2>Drop your file here</h2>
-            <p id="targetText">Choose a device first, or enter its IP manually.</p>
+          <p id="targetText">Scan the pairing QR on your phone, then choose the device.</p>
             <button id="pickFile">Pick file</button>
           </div>
           <div class="apk-note">

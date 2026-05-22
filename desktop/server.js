@@ -1,14 +1,35 @@
 const dgram = require('node:dgram');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
+const QRCode = require('qrcode');
 const { URL } = require('node:url');
 
 const APP_PORT = Number(process.env.PORT || 38531);
 const BEACON_PORT = 47882;
 const DEFAULT_DEVICE_PORT = 47881;
+const portalId = base64Url(crypto.randomBytes(16));
+const pairingSecret = base64Url(crypto.randomBytes(32));
 const devices = new Map();
 const publicDir = path.join(__dirname, 'renderer');
+
+function base64Url(buffer) {
+  return buffer
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function hmacSignature({ method, pathName, filename, size, timestamp, nonce, contentSha256 }) {
+  return base64Url(
+    crypto
+      .createHmac('sha256', Buffer.from(pairingSecret, 'utf8'))
+      .update([method, pathName, filename, String(size), String(timestamp), nonce, contentSha256].join('\n'))
+      .digest(),
+  );
+}
 
 function startDiscovery() {
   const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
@@ -41,17 +62,34 @@ function startDiscovery() {
   }, 2000);
 }
 
-function uploadToAndroid(request, target, filename, size) {
+function uploadToAndroid(request, target, filename, size, contentSha256) {
   return new Promise((resolve, reject) => {
+    const timestamp = Date.now().toString();
+    const nonce = base64Url(crypto.randomBytes(16));
+    const pathName = `/upload?filename=${encodeURIComponent(filename)}`;
+    const signature = hmacSignature({
+      method: 'PUT',
+      pathName,
+      filename,
+      size,
+      timestamp,
+      nonce,
+      contentSha256,
+    });
     const outbound = http.request(
       {
         method: 'PUT',
         hostname: target.ip,
         port: target.port || DEFAULT_DEVICE_PORT,
-        path: `/upload?filename=${encodeURIComponent(filename)}`,
+        path: pathName,
         headers: {
           'Content-Type': 'application/octet-stream',
           'Content-Length': size,
+          'X-DropDroid-Portal-Id': portalId,
+          'X-DropDroid-Timestamp': timestamp,
+          'X-DropDroid-Nonce': nonce,
+          'X-DropDroid-Content-Sha256': contentSha256,
+          'X-DropDroid-Signature': signature,
         },
         timeout: 120000,
       },
@@ -106,6 +144,28 @@ function startUiServer() {
   const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, `http://localhost:${APP_PORT}`);
 
+    if (url.pathname === '/api/pairing') {
+      const payload = JSON.stringify({
+        app: 'DropDroid',
+        version: 1,
+        portalId,
+        secret: pairingSecret,
+        createdAt: Date.now(),
+      });
+      const svg = await QRCode.toString(payload, {
+        type: 'svg',
+        errorCorrectionLevel: 'M',
+        margin: 2,
+        color: {
+          dark: '#142120',
+          light: '#ffffff',
+        },
+      });
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ portalId, payload, svg }));
+      return;
+    }
+
     if (url.pathname === '/api/devices') {
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify(Array.from(devices.values())));
@@ -120,9 +180,10 @@ function startUiServer() {
         };
         const filename = url.searchParams.get('filename') || 'shared-file';
         const size = Number(request.headers['x-file-size']);
-        if (!target.ip || !size) throw new Error('Missing target or file size');
+        const contentSha256 = String(request.headers['x-file-sha256'] || '');
+        if (!target.ip || !size || !contentSha256) throw new Error('Missing target, file size, or file hash');
 
-        await uploadToAndroid(request, target, filename, size);
+        await uploadToAndroid(request, target, filename, size, contentSha256);
         response.writeHead(200, { 'Content-Type': 'application/json' });
         response.end(JSON.stringify({ filename, bytes: size }));
       } catch (error) {

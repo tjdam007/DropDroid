@@ -7,6 +7,9 @@
     "type": "git",
     "url": "https://github.com/tjdam007/DropDroid.git"
   },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  },
   "scripts": {
     "start": "node desktop/server.js",
     "electron:start": "electron .",

@@ -1,5 +1,6 @@
 package io.github.tjdam007.dropdroid.ui.main
 
+import android.content.Intent
 import android.os.Build
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import io.github.tjdam007.dropdroid.ApkDropServer
+import io.github.tjdam007.dropdroid.QrPairingActivity
 import io.github.tjdam007.dropdroid.ReceiverState
 import io.github.tjdam007.dropdroid.theme.MyApplicationTheme
 
@@ -69,6 +72,17 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
       InfoPanel(state)
 
       Spacer(Modifier.height(18.dp))
+      FeaturePanel(
+        title = if (state.isPaired) "Secure portal paired" else "Pair secure portal",
+        body = if (state.isPaired) "Only the paired portal can send files to this phone." else "Scan the QR shown on the desktop portal before receiving files.",
+        action = {
+          Button(onClick = { context.startActivity(Intent(context, QrPairingActivity::class.java)) }) {
+            Text(if (state.isPaired) "Rescan" else "Scan QR")
+          }
+        },
+      )
+
+      Spacer(Modifier.height(10.dp))
       FeaturePanel(
         title = "APK install helper",
         body = "Share any file normally. When the file is an APK, this toggle opens Android's installer after the transfer.",
@@ -152,6 +166,8 @@ private fun InfoPanel(state: ReceiverState) {
     InfoRow("Port", state.port.toString())
     Spacer(Modifier.height(12.dp))
     InfoRow("Mode", "Local Wi-Fi")
+    Spacer(Modifier.height(12.dp))
+    InfoRow("Pairing", if (state.isPaired) "Required + active" else "Required")
   }
 }
 

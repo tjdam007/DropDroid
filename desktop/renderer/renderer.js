@@ -8,6 +8,8 @@ const statusLine = document.querySelector('#statusLine');
 const targetText = document.querySelector('#targetText');
 const signal = document.querySelector('#signal');
 const fileKind = document.querySelector('#fileKind');
+const qrBox = document.querySelector('#qrBox');
+const pairId = document.querySelector('#pairId');
 const manualIp = document.querySelector('#manualIp');
 const useManual = document.querySelector('#useManual');
 const pickFile = document.querySelector('#pickFile');
@@ -16,6 +18,10 @@ const filePicker = document.querySelector('#filePicker');
 if (!window.apkDrop) {
   window.apkDrop = {
     mode: 'browser',
+    getPairing: async () => {
+      const response = await fetch('/api/pairing');
+      return response.json();
+    },
     getDevices: async () => {
       const response = await fetch('/api/devices');
       return response.json();
@@ -25,7 +31,10 @@ if (!window.apkDrop) {
         `/api/send?ip=${encodeURIComponent(target.ip)}&port=${encodeURIComponent(target.port)}&filename=${encodeURIComponent(file.name)}`,
         {
           method: 'POST',
-          headers: { 'x-file-size': String(file.size) },
+          headers: {
+            'x-file-size': String(file.size),
+            'x-file-sha256': await fileSha256(file),
+          },
           body: file,
         },
       );
@@ -42,6 +51,14 @@ if (!window.apkDrop) {
       return () => clearInterval(interval);
     },
   };
+}
+
+async function fileSha256(file) {
+  const buffer = await file.arrayBuffer();
+  const digest = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 function renderDevices() {
@@ -89,7 +106,7 @@ function useManualDevice() {
 
 async function sendFile(file) {
   if (!selectedDevice) {
-    statusLine.textContent = 'Choose a device first';
+    statusLine.textContent = 'Scan the QR on Android, then choose a paired device';
     return;
   }
 
@@ -149,6 +166,11 @@ window.apkDrop.onDevices((nextDevices) => {
 window.apkDrop.getDevices().then((nextDevices) => {
   devices = nextDevices;
   renderDevices();
+});
+
+window.apkDrop.getPairing().then((pairing) => {
+  qrBox.innerHTML = pairing.svg;
+  pairId.textContent = `Session ${pairing.portalId}`;
 });
 
 renderDevices();

@@ -11,8 +11,10 @@ npm start
 ```
 
 4. Open `http://localhost:38531`.
-5. Select the Android device or enter the phone IP manually.
-6. Drop a file into the sender.
+5. Tap "Scan QR" in the Android app.
+6. Scan the QR shown in the desktop sender.
+7. Select the Android device or enter the phone IP manually.
+8. Drop a file into the sender.
 
 ## Developer device setup
 
@@ -63,3 +65,16 @@ With the Android toggle on:
 - Confirm Android still asks for install approval.
 
 On Android 8 and newer, the first APK install may require allowing DropDroid to install unknown apps.
+
+## Security checks
+
+Before scanning the QR:
+
+- Try sending a file.
+- Confirm the Android app rejects the transfer with a pairing/authentication message.
+
+After scanning the QR:
+
+- Send a normal file and confirm it is received.
+- Restart the desktop sender to create a new QR session.
+- Confirm the phone requires scanning the new QR before accepting new transfers.

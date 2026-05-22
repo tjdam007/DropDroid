@@ -1,14 +1,31 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
+const crypto = require('node:crypto');
 const dgram = require('node:dgram');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
+const QRCode = require('qrcode');
 
 const BEACON_PORT = 47882;
 const DEFAULT_DEVICE_PORT = 47881;
+const portalId = base64Url(crypto.randomBytes(16));
+const pairingSecret = base64Url(crypto.randomBytes(32));
 const devices = new Map();
 let mainWindow;
 let udpSocket;
+
+function base64Url(buffer) {
+  return buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function hmacSignature({ method, pathName, filename, size, timestamp, nonce, contentSha256 }) {
+  return base64Url(
+    crypto
+      .createHmac('sha256', Buffer.from(pairingSecret, 'utf8'))
+      .update([method, pathName, filename, String(size), String(timestamp), nonce, contentSha256].join('\n'))
+      .digest(),
+  );
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -73,15 +90,33 @@ function uploadFile(filePath, target) {
   return new Promise((resolve, reject) => {
     const stat = fs.statSync(filePath);
     const filename = path.basename(filePath);
+    const contentSha256 = crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+    const timestamp = Date.now().toString();
+    const nonce = base64Url(crypto.randomBytes(16));
+    const requestPath = `/upload?filename=${encodeURIComponent(filename)}`;
+    const signature = hmacSignature({
+      method: 'PUT',
+      pathName: requestPath,
+      filename,
+      size: stat.size,
+      timestamp,
+      nonce,
+      contentSha256,
+    });
     const request = http.request(
       {
         method: 'PUT',
         hostname: target.ip,
         port: target.port || DEFAULT_DEVICE_PORT,
-        path: `/upload?filename=${encodeURIComponent(filename)}`,
+        path: requestPath,
         headers: {
           'Content-Type': 'application/octet-stream',
           'Content-Length': stat.size,
+          'X-DropDroid-Portal-Id': portalId,
+          'X-DropDroid-Timestamp': timestamp,
+          'X-DropDroid-Nonce': nonce,
+          'X-DropDroid-Content-Sha256': contentSha256,
+          'X-DropDroid-Signature': signature,
         },
         timeout: 120000,
       },
@@ -115,6 +150,11 @@ ipcMain.handle('upload-file', async (_event, { filePath, target }) => {
 });
 
 ipcMain.handle('get-devices', () => Array.from(devices.values()));
+ipcMain.handle('get-pairing', async () => {
+  const payload = JSON.stringify({ app: 'DropDroid', version: 1, portalId, secret: pairingSecret, createdAt: Date.now() });
+  const svg = await QRCode.toString(payload, { type: 'svg', errorCorrectionLevel: 'M', margin: 2 });
+  return { portalId, payload, svg };
+});
 
 app.whenReady().then(() => {
   createWindow();

@@ -26,6 +26,12 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.util.Base64
+import java.util.Collections
+import java.util.LinkedHashSet
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 import java.util.Locale
 import kotlin.math.max
 
@@ -34,9 +40,13 @@ data class ReceiverState(
     val ipAddress: String = "Not connected",
     val port: Int = ApkDropServer.PORT,
     val autoOpenApkInstaller: Boolean = false,
+    val pairedPortalId: String = "",
     val lastFileName: String = "",
     val lastMessage: String = "Waiting for files",
-)
+) {
+    val isPaired: Boolean
+        get() = pairedPortalId.isNotBlank()
+}
 
 object ApkDropServer {
     const val PORT = 47881
@@ -49,6 +59,7 @@ object ApkDropServer {
 
     private var serverSocket: ServerSocket? = null
     private var started = false
+    private val usedNonces = Collections.synchronizedSet(LinkedHashSet<String>())
 
     fun start(context: Context) {
         if (started) return
@@ -61,7 +72,8 @@ object ApkDropServer {
                 running = true,
                 ipAddress = localIpAddress(),
                 autoOpenApkInstaller = prefs.getBoolean("auto_open_apk_installer", false),
-                lastMessage = "Ready on Wi-Fi",
+                pairedPortalId = prefs.getString("paired_portal_id", "") ?: "",
+                lastMessage = if (prefs.getString("paired_secret", "").isNullOrBlank()) "Scan the portal QR to pair" else "Ready for paired transfers",
             )
         }
 
@@ -76,6 +88,29 @@ object ApkDropServer {
             .putBoolean("auto_open_apk_installer", enabled)
             .apply()
         mutableState.update { it.copy(autoOpenApkInstaller = enabled) }
+    }
+
+    fun pairWithPortal(context: Context, qrPayload: String): Boolean {
+        val payload = org.json.JSONObject(qrPayload)
+        if (payload.optString("app") != "DropDroid") return false
+        if (payload.optInt("version") != 1) return false
+        val portalId = payload.optString("portalId")
+        val secret = payload.optString("secret")
+        if (portalId.length < 16 || secret.length < 32) return false
+
+        context.applicationContext
+            .getSharedPreferences("apk_drop", Context.MODE_PRIVATE)
+            .edit()
+            .putString("paired_portal_id", portalId)
+            .putString("paired_secret", secret)
+            .apply()
+        mutableState.update {
+            it.copy(
+                pairedPortalId = portalId,
+                lastMessage = "Paired with secure portal",
+            )
+        }
+        return true
     }
 
     fun openInstallPermissionSettings(context: Context) {
@@ -133,8 +168,19 @@ object ApkDropServer {
                 .substringBefore(' ')
                 .decodeUrl()
                 .safeFileName()
+            val requestPath = requestLine.substringAfter("PUT ").substringBefore(" HTTP/")
+            val auth = validateRequest(context, headers, requestPath, filename, contentLength)
+            if (!auth.ok) {
+                output.writeHttp(401, auth.message)
+                return
+            }
             val target = incomingDirectory(context).resolve(filename)
-            copyBody(input, target, contentLength)
+            val actualHash = copyBody(input, target, contentLength)
+            if (!actualHash.equals(headers["x-dropdroid-content-sha256"], ignoreCase = true)) {
+                target.delete()
+                output.writeHttp(400, "File hash mismatch")
+                return
+            }
 
             mutableState.update {
                 it.copy(
@@ -183,7 +229,60 @@ object ApkDropServer {
         return File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "APKDrop").also { it.mkdirs() }
     }
 
-    private fun copyBody(input: BufferedInputStream, target: File, contentLength: Long) {
+    private data class AuthResult(val ok: Boolean, val message: String = "OK")
+
+    private fun validateRequest(
+        context: Context,
+        headers: Map<String, String>,
+        requestPath: String,
+        filename: String,
+        contentLength: Long,
+    ): AuthResult {
+        val prefs = context.applicationContext.getSharedPreferences("apk_drop", Context.MODE_PRIVATE)
+        val portalId = prefs.getString("paired_portal_id", "") ?: ""
+        val secret = prefs.getString("paired_secret", "") ?: ""
+        if (portalId.isBlank() || secret.isBlank()) return AuthResult(false, "Pair DropDroid first")
+
+        val headerPortalId = headers["x-dropdroid-portal-id"] ?: return AuthResult(false, "Missing portal id")
+        val timestamp = headers["x-dropdroid-timestamp"] ?: return AuthResult(false, "Missing timestamp")
+        val nonce = headers["x-dropdroid-nonce"] ?: return AuthResult(false, "Missing nonce")
+        val contentHash = headers["x-dropdroid-content-sha256"] ?: return AuthResult(false, "Missing content hash")
+        val signature = headers["x-dropdroid-signature"] ?: return AuthResult(false, "Missing signature")
+        if (headerPortalId != portalId) return AuthResult(false, "Wrong paired portal")
+
+        val timestampMillis = timestamp.toLongOrNull() ?: return AuthResult(false, "Bad timestamp")
+        if (kotlin.math.abs(System.currentTimeMillis() - timestampMillis) > 5 * 60 * 1000) {
+            return AuthResult(false, "Expired transfer signature")
+        }
+        synchronized(usedNonces) {
+            if (usedNonces.contains(nonce)) return AuthResult(false, "Replay blocked")
+            usedNonces.add(nonce)
+            if (usedNonces.size > 200) {
+                val iterator = usedNonces.iterator()
+                repeat(usedNonces.size - 200) {
+                    if (iterator.hasNext()) {
+                        iterator.next()
+                        iterator.remove()
+                    }
+                }
+            }
+        }
+
+        val expected = hmac(secret, listOf("PUT", requestPath, filename, contentLength.toString(), timestamp, nonce, contentHash).joinToString("\n"))
+        if (!MessageDigest.isEqual(expected.toByteArray(), signature.toByteArray())) {
+            return AuthResult(false, "Bad transfer signature")
+        }
+        return AuthResult(true)
+    }
+
+    private fun hmac(secret: String, message: String): String {
+        val mac = Mac.getInstance("HmacSHA256")
+        mac.init(SecretKeySpec(secret.toByteArray(StandardCharsets.UTF_8), "HmacSHA256"))
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(message.toByteArray(StandardCharsets.UTF_8)))
+    }
+
+    private fun copyBody(input: BufferedInputStream, target: File, contentLength: Long): String {
+        val digest = MessageDigest.getInstance("SHA-256")
         target.outputStream().use { output ->
             val buffer = ByteArray(BUFFER_SIZE)
             var remaining = contentLength
@@ -191,9 +290,11 @@ object ApkDropServer {
                 val read = input.read(buffer, 0, max(1, minOf(buffer.size.toLong(), remaining).toInt()))
                 if (read == -1) break
                 output.write(buffer, 0, read)
+                digest.update(buffer, 0, read)
                 remaining -= read
             }
         }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun localIpAddress(): String {

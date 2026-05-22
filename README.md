@@ -12,6 +12,8 @@ DropDroid is in early development. The current build is useful for local testing
 
 - Android receiver app built with Kotlin and Jetpack Compose
 - Desktop sender UI that runs locally in the browser
+- QR-based secure pairing between the portal and phone
+- HMAC-signed transfers with timestamp and replay protection
 - Automatic Android device discovery on the same Wi-Fi
 - Manual IP fallback when discovery is blocked by the network
 - APK install helper toggle inside the Android app
@@ -21,10 +23,28 @@ DropDroid is in early development. The current build is useful for local testing
 1. Open DropDroid on the Android phone.
 2. Start the desktop sender on your computer.
 3. Keep both devices on the same Wi-Fi network.
-4. Select the phone when it appears, or enter the phone IP manually.
-5. Drop any file into the desktop sender.
+4. Scan the QR code shown in the desktop sender.
+5. Select the phone when it appears, or enter the phone IP manually.
+6. Drop any file into the desktop sender.
 
 The Android app receives the file over the local network. No cloud server is used.
+
+## Secure pairing
+
+DropDroid requires QR pairing before accepting transfers.
+
+The desktop sender creates a high-entropy session secret and displays it as a QR code. The Android app scans that QR and stores the secret locally.
+
+Every transfer is signed with HMAC-SHA256 and includes:
+
+- paired portal id
+- timestamp
+- nonce
+- file name
+- file size
+- SHA-256 file hash
+
+The Android app rejects unsigned uploads, expired signatures, repeated nonces, wrong portal ids, and files whose hash does not match the signed hash.
 
 ## Run the desktop sender
 
