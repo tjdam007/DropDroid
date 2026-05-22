@@ -6,7 +6,6 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,28 +24,38 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -60,7 +69,14 @@ import io.github.tjdam007.dropdroid.QrPairingActivity
 import io.github.tjdam007.dropdroid.R
 import io.github.tjdam007.dropdroid.ReceivedFile
 import io.github.tjdam007.dropdroid.ReceiverState
+import io.github.tjdam007.dropdroid.design.DropRadius
+import io.github.tjdam007.dropdroid.design.DropSpacing
 import io.github.tjdam007.dropdroid.theme.MyApplicationTheme
+import io.github.tjdam007.dropdroid.ui.components.DropPanel
+import io.github.tjdam007.dropdroid.ui.components.DropPanelVariant
+import io.github.tjdam007.dropdroid.ui.components.StatusPill
+import io.github.tjdam007.dropdroid.ui.components.StatusVariant
+import kotlinx.coroutines.launch
 
 @Composable
 fun MainScreen(
@@ -72,8 +88,7 @@ fun MainScreen(
 }
 
 private enum class AppTab(val label: String, val iconRes: Int) {
-  Receive("Receive", R.drawable.ic_lucide_download),
-  Connect("Connect", R.drawable.ic_lucide_qr_code),
+  Home("Home", R.drawable.ic_lucide_smartphone),
   Files("Files", R.drawable.ic_lucide_files),
   Settings("Settings", R.drawable.ic_lucide_settings),
 }
@@ -81,7 +96,11 @@ private enum class AppTab(val label: String, val iconRes: Int) {
 @Composable
 internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
   val context = LocalContext.current
-  var selectedTab by rememberSaveable { mutableStateOf(AppTab.Receive.name) }
+  val clipboardManager = LocalClipboardManager.current
+  val snackbarHostState = remember { SnackbarHostState() }
+  val scope = rememberCoroutineScope()
+  var selectedTab by rememberSaveable { mutableStateOf(AppTab.Home.name) }
+  val currentTab = runCatching { AppTab.valueOf(selectedTab) }.getOrElse { AppTab.Home }
   val folderPicker =
     rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
       if (uri != null) {
@@ -96,8 +115,9 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
   Scaffold(
     modifier = modifier.fillMaxSize(),
     containerColor = MaterialTheme.colorScheme.background,
+    snackbarHost = { SnackbarHost(snackbarHostState) },
     bottomBar = {
-      NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+      NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceVariant) {
         AppTab.entries.forEach { tab ->
           NavigationBarItem(
             selected = selectedTab == tab.name,
@@ -105,7 +125,8 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
             icon = {
               Icon(
                 painter = painterResource(tab.iconRes),
-                contentDescription = null,
+                contentDescription = tab.label,
+                modifier = Modifier.size(24.dp),
               )
             },
             label = { Text(tab.label) },
@@ -121,14 +142,17 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
           .background(MaterialTheme.colorScheme.background)
           .verticalScroll(rememberScrollState())
           .padding(paddingValues)
-          .padding(horizontal = 16.dp, vertical = 12.dp),
+          .padding(horizontal = DropSpacing.lg, vertical = DropSpacing.md),
     ) {
-      when (AppTab.valueOf(selectedTab)) {
-        AppTab.Receive -> ReceiveTab(state)
-        AppTab.Connect ->
-          ConnectTab(
+      when (currentTab) {
+        AppTab.Home ->
+          HomeTab(
             state = state,
             onScanQr = { context.startActivity(Intent(context, QrPairingActivity::class.java)) },
+            onCopyIp = { ip ->
+              clipboardManager.setText(AnnotatedString(ip))
+              scope.launch { snackbarHostState.showSnackbar("IP copied: $ip") }
+            },
           )
         AppTab.Files -> FilesTab(state.receivedFiles, onOpen = { ApkDropServer.openReceivedFile(context, it) })
         AppTab.Settings ->
@@ -139,25 +163,20 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
             onAllowApkInstalls = { ApkDropServer.openInstallPermissionSettings(context) },
           )
       }
-      Spacer(Modifier.height(40.dp))
+      Spacer(Modifier.height(DropSpacing.bottomNavClearance))
     }
   }
 }
 
 @Composable
-private fun ReceiveTab(state: ReceiverState) {
+private fun HomeTab(state: ReceiverState, onScanQr: () -> Unit, onCopyIp: (String) -> Unit) {
   HeroPanel(state)
-  Spacer(Modifier.height(10.dp))
+  Spacer(Modifier.height(DropSpacing.md))
   StatusPanel(state)
-}
-
-@Composable
-private fun ConnectTab(state: ReceiverState, onScanQr: () -> Unit) {
-  ScreenTitle("Connect", "Pair this phone and confirm local reachability.")
-  Spacer(Modifier.height(10.dp))
-  InfoPanel(state)
-  Spacer(Modifier.height(10.dp))
+  Spacer(Modifier.height(DropSpacing.md))
   PairingPanel(state, onScanQr)
+  Spacer(Modifier.height(DropSpacing.md))
+  InfoPanel(state, onCopyIp)
 }
 
 @Composable
@@ -168,46 +187,38 @@ private fun SettingsTab(
   onAllowApkInstalls: () -> Unit,
 ) {
   ScreenTitle("Settings", "Match the portal, tune receiving, and view project details.")
-  Spacer(Modifier.height(10.dp))
+  Spacer(Modifier.height(DropSpacing.md))
   ThemePanel()
-  Spacer(Modifier.height(10.dp))
+  Spacer(Modifier.height(DropSpacing.md))
   DestinationPanel(state, onPickFolder, onUseDefault)
-  Spacer(Modifier.height(10.dp))
+  Spacer(Modifier.height(DropSpacing.md))
   ApkHelperPanel(state, onAllowApkInstalls)
-  Spacer(Modifier.height(10.dp))
+  Spacer(Modifier.height(DropSpacing.md))
   AboutPanel()
 }
 
 @Composable
 private fun FilesTab(files: List<ReceivedFile>, onOpen: (ReceivedFile) -> Unit) {
   ScreenTitle("Files", "Open recent transfers with Android apps.")
-  Spacer(Modifier.height(10.dp))
+  Spacer(Modifier.height(DropSpacing.md))
   RecentFilesPanel(files, onOpen)
 }
 
 @Composable
 private fun HeroPanel(state: ReceiverState) {
-  Column(
-    modifier =
-      Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(18.dp))
-        .background(MaterialTheme.colorScheme.surface)
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(14.dp),
-  ) {
+  DropPanel(variant = DropPanelVariant.Elevated) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       Box(
         modifier =
           Modifier
             .size(44.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(DropRadius.md))
             .background(MaterialTheme.colorScheme.primary),
         contentAlignment = Alignment.Center,
       ) {
         Text("DD", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.ExtraBold)
       }
-      Spacer(Modifier.width(12.dp))
+      Spacer(Modifier.width(DropSpacing.md))
       Column(modifier = Modifier.weight(1f)) {
         Text("DropDroid", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
         Text(
@@ -218,10 +229,16 @@ private fun HeroPanel(state: ReceiverState) {
       }
     }
 
-    Spacer(Modifier.height(12.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      StatusPill(if (state.running) "Receiver online" else "Receiver offline")
-      StatusPill(if (state.isPaired) "Portal paired" else "Pairing needed")
+    Spacer(Modifier.height(DropSpacing.md))
+    Row(horizontalArrangement = Arrangement.spacedBy(DropSpacing.sm)) {
+      StatusPill(
+        text = if (state.running) "Receiver online" else "Receiver offline",
+        variant = if (state.running) StatusVariant.Success else StatusVariant.Error,
+      )
+      StatusPill(
+        text = if (state.isPaired) "Portal paired" else "Pairing needed",
+        variant = if (state.isPaired) StatusVariant.Success else StatusVariant.Warning,
+      )
     }
   }
 }
@@ -236,28 +253,20 @@ private fun ScreenTitle(title: String, subtitle: String) {
 }
 
 @Composable
-private fun InfoPanel(state: ReceiverState) {
-  Column(
-    modifier =
-      Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(18.dp))
-        .background(MaterialTheme.colorScheme.surface)
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(14.dp),
-  ) {
+private fun InfoPanel(state: ReceiverState, onCopyIp: (String) -> Unit) {
+  DropPanel {
     PanelTitle("Connection", "Local reachability")
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(DropSpacing.lg))
     InfoRow("Device IP", state.ipAddress)
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(DropSpacing.md))
     InfoRow("Port", state.port.toString())
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(DropSpacing.md))
     InfoRow("Mode", "Local connection")
-    Spacer(Modifier.height(12.dp))
-    InfoRow("Pairing", if (state.isPaired) "Required + active" else "Required")
-    Spacer(Modifier.height(12.dp))
-    AddressBlock(state.ipAddresses)
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(DropSpacing.md))
+    InfoRow("Pairing", if (state.isPaired) "Linked to your computer" else "Not linked yet")
+    Spacer(Modifier.height(DropSpacing.md))
+    AddressBlock(state.ipAddresses, onCopyIp)
+    Spacer(Modifier.height(DropSpacing.md))
     Text(
       "If desktop discovery picks a bad address or times out, type one of these IPs into Manual IP on the portal.",
       style = MaterialTheme.typography.bodySmall,
@@ -267,15 +276,28 @@ private fun InfoPanel(state: ReceiverState) {
 }
 
 @Composable
-private fun AddressBlock(addresses: List<String>) {
+private fun AddressBlock(addresses: List<String>, onCopyIp: (String) -> Unit) {
   Column {
     Text("Reachable IPs", color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(DropSpacing.sm))
     if (addresses.isEmpty()) {
       Text("No local address found", fontWeight = FontWeight.SemiBold)
     } else {
       addresses.forEach { address ->
-        Text(address, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Text(address, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+          IconButton(onClick = { onCopyIp(address) }) {
+            Icon(
+              painter = painterResource(R.drawable.ic_lucide_copy),
+              contentDescription = "Copy IP address $address",
+              modifier = Modifier.size(20.dp),
+            )
+          }
+        }
       }
     }
   }
@@ -283,20 +305,12 @@ private fun AddressBlock(addresses: List<String>) {
 
 @Composable
 private fun DestinationPanel(state: ReceiverState, onPickFolder: () -> Unit, onUseDefault: () -> Unit) {
-  Column(
-    modifier =
-      Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(18.dp))
-        .background(MaterialTheme.colorScheme.surface)
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(14.dp),
-  ) {
+  DropPanel {
     PanelTitle("Storage", "Save destination")
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(DropSpacing.sm))
     Text(state.destinationLabel, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Spacer(Modifier.height(14.dp))
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Spacer(Modifier.height(DropSpacing.lg))
+    Row(horizontalArrangement = Arrangement.spacedBy(DropSpacing.md)) {
       OutlinedButton(onClick = onPickFolder) {
         IconText(R.drawable.ic_lucide_folder, "Choose folder")
       }
@@ -307,26 +321,31 @@ private fun DestinationPanel(state: ReceiverState, onPickFolder: () -> Unit, onU
   }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ThemePanel() {
   val context = LocalContext.current
   val themePreference by AppThemeController.theme.collectAsStateWithLifecycle()
-  Column(
-    modifier =
-      Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(18.dp))
-        .background(MaterialTheme.colorScheme.surface)
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(14.dp),
-  ) {
+  DropPanel {
     PanelTitle("Theme", "Keep the app aligned with the web portal.")
-    Spacer(Modifier.height(12.dp))
-    AppThemePreference.entries.forEach { preference ->
-      SettingChoice(
-        title = preference.label,
-        selected = themePreference == preference,
-        onClick = { AppThemeController.set(context, preference) },
+    Spacer(Modifier.height(DropSpacing.md))
+    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+      AppThemePreference.entries.forEachIndexed { index, preference ->
+        SegmentedButton(
+          selected = themePreference == preference,
+          onClick = { AppThemeController.set(context, preference) },
+          shape = SegmentedButtonDefaults.itemShape(index = index, count = AppThemePreference.entries.size),
+          label = { Text(preference.label) },
+          icon = {},
+        )
+      }
+    }
+    if (themePreference == AppThemePreference.System) {
+      Spacer(Modifier.height(DropSpacing.sm))
+      Text(
+        "System follows your device appearance.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }
   }
@@ -360,7 +379,7 @@ private fun ApkHelperPanel(state: ReceiverState, onAllowApkInstalls: () -> Unit)
   )
 
   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(DropSpacing.md))
     OutlinedButton(
       onClick = onAllowApkInstalls,
       modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
@@ -373,21 +392,13 @@ private fun ApkHelperPanel(state: ReceiverState, onAllowApkInstalls: () -> Unit)
 @Composable
 private fun AboutPanel() {
   val context = LocalContext.current
-  Column(
-    modifier =
-      Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(18.dp))
-        .background(MaterialTheme.colorScheme.surface)
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(14.dp),
-  ) {
+  DropPanel {
     PanelTitle("About", "Open-source local-only sharing.")
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(DropSpacing.md))
     InfoRow("Version", BuildConfig.VERSION_NAME)
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(DropSpacing.md))
     InfoRow("Build", BuildConfig.VERSION_CODE.toString())
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(DropSpacing.lg))
     OutlinedButton(
       onClick = {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/tjdam007/DropDroid")))
@@ -396,30 +407,6 @@ private fun AboutPanel() {
     ) {
       IconText(R.drawable.ic_lucide_external_link, "View GitHub repository")
     }
-  }
-}
-
-@Composable
-private fun SettingChoice(title: String, selected: Boolean, onClick: () -> Unit) {
-  Row(
-    modifier =
-      Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(14.dp))
-        .clickable(onClick = onClick)
-        .padding(vertical = 10.dp),
-    horizontalArrangement = Arrangement.SpaceBetween,
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
-    Text(title, fontWeight = FontWeight.SemiBold)
-    Box(
-      modifier =
-        Modifier
-          .size(22.dp)
-          .clip(RoundedCornerShape(999.dp))
-          .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(999.dp))
-          .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
-    )
   }
 }
 
@@ -437,69 +424,54 @@ private fun InfoRow(label: String, value: String) {
 
 @Composable
 private fun IconText(iconRes: Int, text: String) {
-  Icon(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(18.dp))
-  Spacer(Modifier.width(8.dp))
+  Icon(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(20.dp))
+  Spacer(Modifier.width(DropSpacing.sm))
   Text(text)
 }
 
 @Composable
 private fun FeaturePanel(title: String, body: String, action: @Composable () -> Unit) {
-  Row(
-    modifier =
-      Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(18.dp))
-        .background(MaterialTheme.colorScheme.surface)
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(14.dp),
-    verticalAlignment = Alignment.CenterVertically,
-  ) {
+  DropPanel {
+    Row(verticalAlignment = Alignment.CenterVertically) {
     Column(modifier = Modifier.weight(1f)) {
       Text(title, style = MaterialTheme.typography.titleMedium)
-      Spacer(Modifier.height(6.dp))
+      Spacer(Modifier.height(DropSpacing.sm))
       Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    Spacer(Modifier.width(16.dp))
+    Spacer(Modifier.width(DropSpacing.lg))
     action()
+    }
   }
 }
 
 @Composable
 private fun StatusPanel(state: ReceiverState) {
-  Column(
-    modifier =
-      Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(18.dp))
-        .background(MaterialTheme.colorScheme.surface)
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(14.dp),
-  ) {
+  DropPanel {
     PanelTitle("Receiving", if (state.isReceiving) "Transfer in progress" else "Waiting for files")
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(DropSpacing.md))
     if (state.isReceiving) {
       Text(state.receivingFileName, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
-      Spacer(Modifier.height(10.dp))
+      Spacer(Modifier.height(DropSpacing.md))
       LinearProgressIndicator(
         progress = { state.progress },
         modifier = Modifier.fillMaxWidth(),
       )
-      Spacer(Modifier.height(8.dp))
+      Spacer(Modifier.height(DropSpacing.sm))
       Text(
         "${state.receivingBytes.toReadableSize()} / ${state.receivingTotalBytes.toReadableSize()}",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
-      Spacer(Modifier.height(14.dp))
+      Spacer(Modifier.height(DropSpacing.lg))
     }
     Text(state.lastMessage, style = MaterialTheme.typography.bodyLarge)
     if (state.lastFileName.isNotBlank()) {
-      Spacer(Modifier.height(8.dp))
+      Spacer(Modifier.height(DropSpacing.sm))
       Text(state.lastFileName, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
     }
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(DropSpacing.lg))
     HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(DropSpacing.md))
     Text(
       "Android will always ask before installing an APK.",
       style = MaterialTheme.typography.bodySmall,
@@ -510,41 +482,33 @@ private fun StatusPanel(state: ReceiverState) {
 
 @Composable
 private fun RecentFilesPanel(files: List<ReceivedFile>, onOpen: (ReceivedFile) -> Unit) {
-  Column(
-    modifier =
-      Modifier
-        .fillMaxWidth()
-        .clip(RoundedCornerShape(18.dp))
-        .background(MaterialTheme.colorScheme.surface)
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(14.dp),
-  ) {
+  DropPanel {
     PanelTitle("Files", "Recent received items")
-    Spacer(Modifier.height(10.dp))
+    Spacer(Modifier.height(DropSpacing.md))
     if (files.isEmpty()) {
       Text("Received files will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-      return@Column
-    }
-    files.forEachIndexed { index, file ->
-      Row(
-        modifier =
-          Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onOpen(file) }
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
-          Text(file.name, fontWeight = FontWeight.SemiBold)
-          Spacer(Modifier.height(2.dp))
-          Text(file.sizeBytes.toReadableSize(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    } else {
+      files.forEachIndexed { index, file ->
+        Row(
+          modifier =
+            Modifier
+              .fillMaxWidth()
+              .clip(RoundedCornerShape(DropRadius.sm))
+              .clickable { onOpen(file) }
+              .padding(vertical = DropSpacing.md),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically,
+        ) {
+          Column(modifier = Modifier.weight(1f)) {
+            Text(file.name, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(DropSpacing.xs))
+            Text(file.sizeBytes.toReadableSize(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          }
+          Text("Open", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
         }
-        Text("Open", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-      }
-      if (index != files.lastIndex) {
-        HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+        if (index != files.lastIndex) {
+          HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
+        }
       }
     }
   }
@@ -554,21 +518,8 @@ private fun RecentFilesPanel(files: List<ReceivedFile>, onOpen: (ReceivedFile) -
 private fun PanelTitle(title: String, subtitle: String) {
   Column {
     Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-    Spacer(Modifier.height(2.dp))
+    Spacer(Modifier.height(DropSpacing.xs))
     Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-  }
-}
-
-@Composable
-private fun StatusPill(text: String) {
-  Box(
-    modifier =
-      Modifier
-        .clip(RoundedCornerShape(999.dp))
-        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
-        .padding(horizontal = 14.dp, vertical = 7.dp),
-  ) {
-    Text(text, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
   }
 }
 
