@@ -36,7 +36,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -193,38 +192,33 @@ private fun HeroPanel(state: ReceiverState) {
       Modifier
         .fillMaxWidth()
         .clip(RoundedCornerShape(18.dp))
-        .background(MaterialTheme.colorScheme.primary)
-        .padding(16.dp),
+        .background(MaterialTheme.colorScheme.surface)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
+        .padding(14.dp),
   ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       Box(
         modifier =
           Modifier
-            .size(48.dp)
-            .clip(RoundedCornerShape(15.dp))
-            .background(contentColorFor(MaterialTheme.colorScheme.primary).copy(alpha = 0.12f)),
+            .size(44.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.primary),
         contentAlignment = Alignment.Center,
       ) {
-        Text("DD", color = contentColorFor(MaterialTheme.colorScheme.primary), fontWeight = FontWeight.ExtraBold)
+        Text("DD", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.ExtraBold)
       }
-      Spacer(Modifier.width(14.dp))
-      Column {
-        Text("DropDroid", style = MaterialTheme.typography.headlineLarge, color = contentColorFor(MaterialTheme.colorScheme.primary))
+      Spacer(Modifier.width(12.dp))
+      Column(modifier = Modifier.weight(1f)) {
+        Text("DropDroid", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
         Text(
-          "Secure local receiver",
-          color = contentColorFor(MaterialTheme.colorScheme.primary).copy(alpha = 0.76f),
+          if (state.running) "Ready for local transfers" else "Receiver is offline",
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
           fontWeight = FontWeight.SemiBold,
         )
       }
     }
 
     Spacer(Modifier.height(12.dp))
-    Text(
-      "Keep this phone open and on the same local connection as the desktop sender.",
-      style = MaterialTheme.typography.titleLarge,
-      color = contentColorFor(MaterialTheme.colorScheme.primary),
-    )
-    Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       StatusPill(if (state.running) "Receiver online" else "Receiver offline")
       StatusPill(if (state.isPaired) "Portal paired" else "Pairing needed")
@@ -571,10 +565,10 @@ private fun StatusPill(text: String) {
     modifier =
       Modifier
         .clip(RoundedCornerShape(999.dp))
-        .background(contentColorFor(MaterialTheme.colorScheme.primary).copy(alpha = 0.12f))
+        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
         .padding(horizontal = 14.dp, vertical = 7.dp),
   ) {
-    Text(text, color = contentColorFor(MaterialTheme.colorScheme.primary), fontWeight = FontWeight.Bold)
+    Text(text, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
   }
 }
 
