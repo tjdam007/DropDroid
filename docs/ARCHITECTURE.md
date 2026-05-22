@@ -7,7 +7,9 @@ DropDroid has two parts:
 
 ## Android receiver
 
-The Android app starts a small local HTTP receiver on port `47881`.
+The Android app starts a foreground receiver service with a small local HTTP receiver on port `47881`.
+
+The foreground service keeps the local receiver available when the app is backgrounded and shows a persistent Android notification with ready/receiving status.
 
 It also broadcasts a lightweight UDP discovery message on port `47882`, so the desktop sender can find the phone automatically on the same local network when broadcast is allowed.
 

@@ -18,6 +18,8 @@ DropDroid is in early development. The current build is useful for local testing
 - QR-based secure pairing between the portal and phone
 - HMAC-signed transfers with timestamp and replay protection
 - Transfer progress inside the Android app
+- Background receiving through an Android foreground service
+- Persistent Android notification with receiver and transfer status
 - Configurable Android save folder with a default destination
 - Recent received files with tap-to-open behavior
 - Automatic Android device discovery on the same local network
@@ -42,6 +44,12 @@ DropDroid can work over Wi-Fi, phone hotspot, LAN, Ethernet-to-router, USB tethe
 DropDroid saves files to a default app Downloads / DropDroid folder. Users can choose another Android folder from the app using the system folder picker.
 
 Received files appear in the recent files list. Tapping a file asks Android to open it with the default compatible app.
+
+## Background receiving
+
+DropDroid runs its local receiver as an Android foreground service. When the receiver is active, Android shows a persistent DropDroid notification with receiver status and transfer progress.
+
+On Android 13 and newer, allow notifications so DropDroid can show receiver status clearly.
 
 ## Multiscreen support
 

@@ -18,6 +18,16 @@ npm start
 9. Watch the progress indicator in the Android app.
 10. Tap the received file in the recent files list and confirm Android opens it with a compatible app.
 
+## Background and notification checks
+
+- Open DropDroid and allow notification permission when prompted.
+- Pair the phone with the desktop portal.
+- Put DropDroid in the background.
+- Confirm Android shows the DropDroid receiver notification.
+- Send a file from the desktop sender.
+- Confirm the notification updates while receiving.
+- Reopen DropDroid from the notification and confirm the transfer appears in the app.
+
 ## Save folder checks
 
 Default folder:
