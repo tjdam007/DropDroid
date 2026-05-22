@@ -9,7 +9,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -27,12 +26,18 @@ import androidx.compose.material3.DividerDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,9 +63,17 @@ fun MainScreen(
   MainScreen(state = state, modifier = modifier)
 }
 
+private enum class AppTab(val label: String, val icon: String) {
+  Home("Home", "H"),
+  Connect("Connect", "C"),
+  Storage("Storage", "S"),
+  Files("Files", "F"),
+}
+
 @Composable
 internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
   val context = LocalContext.current
+  var selectedTab by rememberSaveable { mutableStateOf(AppTab.Home.name) }
   val folderPicker =
     rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
       if (uri != null) {
@@ -72,82 +85,89 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
       }
     }
 
-  Box(
-    modifier =
-      modifier
-        .fillMaxSize()
-        .background(MaterialTheme.colorScheme.background),
-  ) {
-    BoxWithConstraints(
+  Scaffold(
+    modifier = modifier.fillMaxSize(),
+    containerColor = MaterialTheme.colorScheme.background,
+    bottomBar = {
+      NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+        AppTab.entries.forEach { tab ->
+          NavigationBarItem(
+            selected = selectedTab == tab.name,
+            onClick = { selectedTab = tab.name },
+            icon = {
+              Text(tab.icon, fontWeight = FontWeight.ExtraBold)
+            },
+            label = { Text(tab.label) },
+          )
+        }
+      }
+    },
+  ) { paddingValues ->
+    Column(
       modifier =
         Modifier
+          .fillMaxSize()
+          .background(MaterialTheme.colorScheme.background)
           .verticalScroll(rememberScrollState())
-          .padding(bottom = 18.dp),
+          .padding(paddingValues)
+          .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
-      if (maxWidth >= 720.dp) {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.spacedBy(18.dp),
-          verticalAlignment = Alignment.Top,
-        ) {
-          Column(modifier = Modifier.weight(1f)) {
-            HeroPanel(state)
-
-            Spacer(Modifier.height(18.dp))
-            InfoPanel(state)
-
-            Spacer(Modifier.height(18.dp))
-            DestinationPanel(
-              state = state,
-              onPickFolder = { folderPicker.launch(null) },
-              onUseDefault = { ApkDropServer.resetDestination(context) },
-            )
-          }
-
-          Column(modifier = Modifier.weight(1f)) {
-            ControlsSection(
-              state = state,
-              onScanQr = { context.startActivity(Intent(context, QrPairingActivity::class.java)) },
-              onAllowApkInstalls = { ApkDropServer.openInstallPermissionSettings(context) },
-            )
-
-            Spacer(Modifier.height(18.dp))
-            StatusPanel(state)
-
-            Spacer(Modifier.height(18.dp))
-            RecentFilesPanel(state.receivedFiles, onOpen = { ApkDropServer.openReceivedFile(context, it) })
-          }
-        }
-      } else {
-        Column {
-          HeroPanel(state)
-
-          Spacer(Modifier.height(18.dp))
-          InfoPanel(state)
-
-          Spacer(Modifier.height(18.dp))
-          DestinationPanel(
+      when (AppTab.valueOf(selectedTab)) {
+        AppTab.Home -> HomeTab(state)
+        AppTab.Connect ->
+          ConnectTab(
+            state = state,
+            onScanQr = { context.startActivity(Intent(context, QrPairingActivity::class.java)) },
+          )
+        AppTab.Storage ->
+          StorageTab(
             state = state,
             onPickFolder = { folderPicker.launch(null) },
             onUseDefault = { ApkDropServer.resetDestination(context) },
-          )
-
-          Spacer(Modifier.height(18.dp))
-          ControlsSection(
-            state = state,
-            onScanQr = { context.startActivity(Intent(context, QrPairingActivity::class.java)) },
             onAllowApkInstalls = { ApkDropServer.openInstallPermissionSettings(context) },
           )
-
-          Spacer(Modifier.height(18.dp))
-          StatusPanel(state)
-
-          Spacer(Modifier.height(18.dp))
-          RecentFilesPanel(state.receivedFiles, onOpen = { ApkDropServer.openReceivedFile(context, it) })
-        }
+        AppTab.Files -> FilesTab(state.receivedFiles, onOpen = { ApkDropServer.openReceivedFile(context, it) })
       }
+      Spacer(Modifier.height(18.dp))
     }
   }
+}
+
+@Composable
+private fun HomeTab(state: ReceiverState) {
+  HeroPanel(state)
+  Spacer(Modifier.height(18.dp))
+  StatusPanel(state)
+}
+
+@Composable
+private fun ConnectTab(state: ReceiverState, onScanQr: () -> Unit) {
+  ScreenTitle("Connect", "Pair this phone and confirm local reachability.")
+  Spacer(Modifier.height(14.dp))
+  InfoPanel(state)
+  Spacer(Modifier.height(18.dp))
+  PairingPanel(state, onScanQr)
+}
+
+@Composable
+private fun StorageTab(
+  state: ReceiverState,
+  onPickFolder: () -> Unit,
+  onUseDefault: () -> Unit,
+  onAllowApkInstalls: () -> Unit,
+) {
+  ScreenTitle("Storage", "Choose where files land and how APKs are handled.")
+  Spacer(Modifier.height(14.dp))
+  DestinationPanel(state, onPickFolder, onUseDefault)
+  Spacer(Modifier.height(18.dp))
+  ApkHelperPanel(state, onAllowApkInstalls)
+}
+
+@Composable
+private fun FilesTab(files: List<ReceivedFile>, onOpen: (ReceivedFile) -> Unit) {
+  ScreenTitle("Files", "Open recent transfers with Android apps.")
+  Spacer(Modifier.height(14.dp))
+  RecentFilesPanel(files, onOpen)
 }
 
 @Composable
@@ -189,6 +209,15 @@ private fun HeroPanel(state: ReceiverState) {
       StatusPill(if (state.running) "Receiver online" else "Receiver offline")
       StatusPill(if (state.isPaired) "Portal paired" else "Pairing needed")
     }
+  }
+}
+
+@Composable
+private fun ScreenTitle(title: String, subtitle: String) {
+  Column {
+    Text(title, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.ExtraBold)
+    Spacer(Modifier.height(4.dp))
+    Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
   }
 }
 
@@ -265,41 +294,39 @@ private fun DestinationPanel(state: ReceiverState, onPickFolder: () -> Unit, onU
 }
 
 @Composable
-private fun ControlsSection(state: ReceiverState, onScanQr: () -> Unit, onAllowApkInstalls: () -> Unit) {
-  val context = LocalContext.current
-  Column {
-    SectionLabel("Setup")
-    Spacer(Modifier.height(8.dp))
-    FeaturePanel(
-      title = if (state.isPaired) "Secure portal paired" else "Pair secure portal",
-      body = if (state.isPaired) "Only the paired portal can send files to this phone." else "Scan the QR shown on the desktop portal before receiving files.",
-      action = {
-        Button(onClick = onScanQr) {
-          Text(if (state.isPaired) "Rescan" else "Scan QR")
-        }
-      },
-    )
-
-    Spacer(Modifier.height(10.dp))
-    FeaturePanel(
-      title = "APK install helper",
-      body = "Share any file normally. When the file is an APK, this toggle opens Android's installer after the transfer.",
-      action = {
-        Switch(
-          checked = state.autoOpenApkInstaller,
-          onCheckedChange = { ApkDropServer.setAutoOpenApkInstaller(context, it) },
-        )
-      },
-    )
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      Spacer(Modifier.height(10.dp))
-      OutlinedButton(
-        onClick = onAllowApkInstalls,
-        modifier = Modifier.fillMaxWidth(),
-      ) {
-        Text("Allow installs from DropDroid")
+private fun PairingPanel(state: ReceiverState, onScanQr: () -> Unit) {
+  FeaturePanel(
+    title = if (state.isPaired) "Secure portal paired" else "Pair secure portal",
+    body = if (state.isPaired) "Only the paired portal can send files to this phone." else "Scan the QR shown on the desktop portal before receiving files.",
+    action = {
+      Button(onClick = onScanQr) {
+        Text(if (state.isPaired) "Rescan" else "Scan QR")
       }
+    },
+  )
+}
+
+@Composable
+private fun ApkHelperPanel(state: ReceiverState, onAllowApkInstalls: () -> Unit) {
+  val context = LocalContext.current
+  FeaturePanel(
+    title = "APK install helper",
+    body = "Share any file normally. When the file is an APK, this toggle opens Android's installer after the transfer.",
+    action = {
+      Switch(
+        checked = state.autoOpenApkInstaller,
+        onCheckedChange = { ApkDropServer.setAutoOpenApkInstaller(context, it) },
+      )
+    },
+  )
+
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    Spacer(Modifier.height(10.dp))
+    OutlinedButton(
+      onClick = onAllowApkInstalls,
+      modifier = Modifier.fillMaxWidth(),
+    ) {
+      Text("Allow installs from DropDroid")
     }
   }
 }
@@ -422,16 +449,6 @@ private fun RecentFilesPanel(files: List<ReceivedFile>, onOpen: (ReceivedFile) -
       }
     }
   }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-  Text(
-    text,
-    style = MaterialTheme.typography.labelLarge,
-    color = MaterialTheme.colorScheme.primary,
-    fontWeight = FontWeight.ExtraBold,
-  )
 }
 
 @Composable
