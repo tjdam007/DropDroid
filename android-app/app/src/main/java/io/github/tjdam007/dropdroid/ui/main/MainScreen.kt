@@ -1,6 +1,7 @@
 package io.github.tjdam007.dropdroid.ui.main
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -49,6 +50,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import io.github.tjdam007.dropdroid.ApkDropServer
+import io.github.tjdam007.dropdroid.AppThemeController
+import io.github.tjdam007.dropdroid.AppThemePreference
+import io.github.tjdam007.dropdroid.BuildConfig
 import io.github.tjdam007.dropdroid.QrPairingActivity
 import io.github.tjdam007.dropdroid.ReceivedFile
 import io.github.tjdam007.dropdroid.ReceiverState
@@ -64,16 +68,16 @@ fun MainScreen(
 }
 
 private enum class AppTab(val label: String, val icon: String) {
-  Home("Home", "H"),
+  Receive("Receive", "R"),
   Connect("Connect", "C"),
-  Storage("Storage", "S"),
   Files("Files", "F"),
+  Settings("Settings", "S"),
 }
 
 @Composable
 internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
   val context = LocalContext.current
-  var selectedTab by rememberSaveable { mutableStateOf(AppTab.Home.name) }
+  var selectedTab by rememberSaveable { mutableStateOf(AppTab.Receive.name) }
   val folderPicker =
     rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
       if (uri != null) {
@@ -113,20 +117,20 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
           .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
       when (AppTab.valueOf(selectedTab)) {
-        AppTab.Home -> HomeTab(state)
+        AppTab.Receive -> ReceiveTab(state)
         AppTab.Connect ->
           ConnectTab(
             state = state,
             onScanQr = { context.startActivity(Intent(context, QrPairingActivity::class.java)) },
           )
-        AppTab.Storage ->
-          StorageTab(
+        AppTab.Files -> FilesTab(state.receivedFiles, onOpen = { ApkDropServer.openReceivedFile(context, it) })
+        AppTab.Settings ->
+          SettingsTab(
             state = state,
             onPickFolder = { folderPicker.launch(null) },
             onUseDefault = { ApkDropServer.resetDestination(context) },
             onAllowApkInstalls = { ApkDropServer.openInstallPermissionSettings(context) },
           )
-        AppTab.Files -> FilesTab(state.receivedFiles, onOpen = { ApkDropServer.openReceivedFile(context, it) })
       }
       Spacer(Modifier.height(18.dp))
     }
@@ -134,7 +138,7 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun HomeTab(state: ReceiverState) {
+private fun ReceiveTab(state: ReceiverState) {
   HeroPanel(state)
   Spacer(Modifier.height(18.dp))
   StatusPanel(state)
@@ -150,17 +154,21 @@ private fun ConnectTab(state: ReceiverState, onScanQr: () -> Unit) {
 }
 
 @Composable
-private fun StorageTab(
+private fun SettingsTab(
   state: ReceiverState,
   onPickFolder: () -> Unit,
   onUseDefault: () -> Unit,
   onAllowApkInstalls: () -> Unit,
 ) {
-  ScreenTitle("Storage", "Choose where files land and how APKs are handled.")
+  ScreenTitle("Settings", "Match the portal, tune receiving, and view project details.")
   Spacer(Modifier.height(14.dp))
+  ThemePanel()
+  Spacer(Modifier.height(18.dp))
   DestinationPanel(state, onPickFolder, onUseDefault)
   Spacer(Modifier.height(18.dp))
   ApkHelperPanel(state, onAllowApkInstalls)
+  Spacer(Modifier.height(18.dp))
+  AboutPanel()
 }
 
 @Composable
@@ -294,6 +302,31 @@ private fun DestinationPanel(state: ReceiverState, onPickFolder: () -> Unit, onU
 }
 
 @Composable
+private fun ThemePanel() {
+  val context = LocalContext.current
+  val themePreference by AppThemeController.theme.collectAsStateWithLifecycle()
+  Column(
+    modifier =
+      Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(18.dp))
+        .background(MaterialTheme.colorScheme.surface)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
+        .padding(18.dp),
+  ) {
+    PanelTitle("Theme", "Keep the app aligned with the web portal.")
+    Spacer(Modifier.height(12.dp))
+    AppThemePreference.entries.forEach { preference ->
+      SettingChoice(
+        title = preference.label,
+        selected = themePreference == preference,
+        onClick = { AppThemeController.set(context, preference) },
+      )
+    }
+  }
+}
+
+@Composable
 private fun PairingPanel(state: ReceiverState, onScanQr: () -> Unit) {
   FeaturePanel(
     title = if (state.isPaired) "Secure portal paired" else "Pair secure portal",
@@ -328,6 +361,59 @@ private fun ApkHelperPanel(state: ReceiverState, onAllowApkInstalls: () -> Unit)
     ) {
       Text("Allow installs from DropDroid")
     }
+  }
+}
+
+@Composable
+private fun AboutPanel() {
+  val context = LocalContext.current
+  Column(
+    modifier =
+      Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(18.dp))
+        .background(MaterialTheme.colorScheme.surface)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
+        .padding(18.dp),
+  ) {
+    PanelTitle("About", "Open-source local-only sharing.")
+    Spacer(Modifier.height(12.dp))
+    InfoRow("Version", BuildConfig.VERSION_NAME)
+    Spacer(Modifier.height(12.dp))
+    InfoRow("Build", BuildConfig.VERSION_CODE.toString())
+    Spacer(Modifier.height(14.dp))
+    OutlinedButton(
+      onClick = {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/tjdam007/DropDroid")))
+      },
+      modifier = Modifier.fillMaxWidth(),
+    ) {
+      Text("View GitHub repository")
+    }
+  }
+}
+
+@Composable
+private fun SettingChoice(title: String, selected: Boolean, onClick: () -> Unit) {
+  Row(
+    modifier =
+      Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(14.dp))
+        .clickable(onClick = onClick)
+        .padding(vertical = 12.dp),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    Text(title, fontWeight = FontWeight.SemiBold)
+    Box(
+      modifier =
+        Modifier
+          .size(22.dp)
+          .clip(RoundedCornerShape(999.dp))
+          .border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(999.dp))
+          .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
+    )
   }
 }
 

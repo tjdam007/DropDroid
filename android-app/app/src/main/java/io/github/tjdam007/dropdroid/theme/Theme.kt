@@ -5,6 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import io.github.tjdam007.dropdroid.AppThemePreference
 
 private val DarkColorScheme =
   darkColorScheme(
@@ -30,9 +31,15 @@ private val LightColorScheme =
 
 @Composable
 fun MyApplicationTheme(
-  darkTheme: Boolean = isSystemInDarkTheme(),
+  themePreference: AppThemePreference = AppThemePreference.System,
   content: @Composable () -> Unit,
 ) {
+  val darkTheme =
+    when (themePreference) {
+      AppThemePreference.System -> isSystemInDarkTheme()
+      AppThemePreference.Light -> false
+      AppThemePreference.Dark -> true
+    }
   val colorScheme =
     when {
       darkTheme -> DarkColorScheme
