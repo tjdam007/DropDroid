@@ -74,6 +74,7 @@ import io.github.tjdam007.dropdroid.design.DropSpacing
 import io.github.tjdam007.dropdroid.theme.MyApplicationTheme
 import io.github.tjdam007.dropdroid.ui.components.DropPanel
 import io.github.tjdam007.dropdroid.ui.components.DropPanelVariant
+import io.github.tjdam007.dropdroid.ui.components.EmptyState
 import io.github.tjdam007.dropdroid.ui.components.StatusPill
 import io.github.tjdam007.dropdroid.ui.components.StatusVariant
 import kotlinx.coroutines.launch
@@ -446,11 +447,19 @@ private fun FeaturePanel(title: String, body: String, action: @Composable () -> 
 
 @Composable
 private fun StatusPanel(state: ReceiverState) {
-  DropPanel {
-    PanelTitle("Receiving", if (state.isReceiving) "Transfer in progress" else "Waiting for files")
+  DropPanel(variant = if (state.isReceiving) DropPanelVariant.Elevated else DropPanelVariant.Outlined) {
+    PanelTitle("Receiving", if (state.isReceiving) "Transfer in progress" else "Ready")
     Spacer(Modifier.height(DropSpacing.md))
     if (state.isReceiving) {
-      Text(state.receivingFileName, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+      val progressPercent = (state.progress * 100).toInt().coerceIn(0, 100)
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        Text(state.receivingFileName, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+        Text("$progressPercent%", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+      }
       Spacer(Modifier.height(DropSpacing.md))
       LinearProgressIndicator(
         progress = { state.progress },
@@ -463,11 +472,19 @@ private fun StatusPanel(state: ReceiverState) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
       Spacer(Modifier.height(DropSpacing.lg))
-    }
-    Text(state.lastMessage, style = MaterialTheme.typography.bodyLarge)
-    if (state.lastFileName.isNotBlank()) {
-      Spacer(Modifier.height(DropSpacing.sm))
-      Text(state.lastFileName, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+      Text(state.lastMessage, style = MaterialTheme.typography.bodyLarge)
+    } else {
+      EmptyState(
+        title = "Ready for files",
+        body = "Drop a file in the desktop portal and it will appear here.",
+        iconRes = R.drawable.ic_lucide_download,
+      )
+      if (state.lastFileName.isNotBlank()) {
+        Spacer(Modifier.height(DropSpacing.md))
+        Text("Last received", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(DropSpacing.xs))
+        Text(state.lastFileName, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+      }
     }
     Spacer(Modifier.height(DropSpacing.lg))
     HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
