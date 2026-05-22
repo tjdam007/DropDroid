@@ -1,8 +1,11 @@
 package io.github.tjdam007.dropdroid.ui.main
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -62,6 +65,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import io.github.tjdam007.dropdroid.ApkDropServer
@@ -206,13 +210,15 @@ private fun SettingsTab(
   onAllowApkInstalls: () -> Unit,
 ) {
   ScreenTitle("Settings", "Match the portal, tune receiving, and view project details.")
-  Spacer(Modifier.height(DropSpacing.md))
+  SettingsSectionTitle("Appearance")
   ThemePanel()
-  Spacer(Modifier.height(DropSpacing.md))
+  SettingsSectionTitle("Receiving")
   DestinationPanel(state, onPickFolder, onUseDefault)
   Spacer(Modifier.height(DropSpacing.md))
+  NotificationPanel()
+  SettingsSectionTitle("APK handling")
   ApkHelperPanel(state, onAllowApkInstalls)
-  Spacer(Modifier.height(DropSpacing.md))
+  SettingsSectionTitle("Project")
   AboutPanel()
 }
 
@@ -304,6 +310,18 @@ private fun ScreenTitle(title: String, subtitle: String) {
     Spacer(Modifier.height(4.dp))
     Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.SemiBold)
   }
+}
+
+@Composable
+private fun SettingsSectionTitle(title: String) {
+  Spacer(Modifier.height(DropSpacing.lg))
+  Text(
+    title,
+    style = MaterialTheme.typography.labelLarge,
+    color = MaterialTheme.colorScheme.primary,
+    fontWeight = FontWeight.Bold,
+  )
+  Spacer(Modifier.height(DropSpacing.sm))
 }
 
 @Composable
@@ -401,6 +419,44 @@ private fun ThemePanel() {
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
+    }
+  }
+}
+
+@Composable
+private fun NotificationPanel() {
+  val context = LocalContext.current
+  val notificationsEnabled =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+      ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+  FeaturePanel(
+    title = "Background receiver",
+    body =
+      if (notificationsEnabled) {
+        "DropDroid keeps a receiver notification visible while it listens for local transfers."
+      } else {
+        "Enable notifications so Android can show receiver status and transfer progress."
+      },
+    action = {
+      StatusPill(
+        text = if (notificationsEnabled) "Visible" else "Needs access",
+        variant = if (notificationsEnabled) StatusVariant.Success else StatusVariant.Warning,
+      )
+    },
+  )
+
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !notificationsEnabled) {
+    Spacer(Modifier.height(DropSpacing.md))
+    OutlinedButton(
+      onClick = {
+        context.startActivity(
+          Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+        )
+      },
+      modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+    ) {
+      IconText(R.drawable.ic_lucide_external_link, "Open notification settings")
     }
   }
 }
