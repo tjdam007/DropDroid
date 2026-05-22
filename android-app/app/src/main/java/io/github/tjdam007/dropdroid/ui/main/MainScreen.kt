@@ -114,7 +114,7 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
           .background(MaterialTheme.colorScheme.background)
           .verticalScroll(rememberScrollState())
           .padding(paddingValues)
-          .padding(horizontal = 18.dp, vertical = 16.dp),
+          .padding(horizontal = 10.dp, vertical = 10.dp),
     ) {
       when (AppTab.valueOf(selectedTab)) {
         AppTab.Receive -> ReceiveTab(state)
@@ -132,7 +132,7 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
             onAllowApkInstalls = { ApkDropServer.openInstallPermissionSettings(context) },
           )
       }
-      Spacer(Modifier.height(18.dp))
+      Spacer(Modifier.height(10.dp))
     }
   }
 }
@@ -140,16 +140,16 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
 @Composable
 private fun ReceiveTab(state: ReceiverState) {
   HeroPanel(state)
-  Spacer(Modifier.height(18.dp))
+  Spacer(Modifier.height(10.dp))
   StatusPanel(state)
 }
 
 @Composable
 private fun ConnectTab(state: ReceiverState, onScanQr: () -> Unit) {
   ScreenTitle("Connect", "Pair this phone and confirm local reachability.")
-  Spacer(Modifier.height(14.dp))
+  Spacer(Modifier.height(10.dp))
   InfoPanel(state)
-  Spacer(Modifier.height(18.dp))
+  Spacer(Modifier.height(10.dp))
   PairingPanel(state, onScanQr)
 }
 
@@ -161,20 +161,20 @@ private fun SettingsTab(
   onAllowApkInstalls: () -> Unit,
 ) {
   ScreenTitle("Settings", "Match the portal, tune receiving, and view project details.")
-  Spacer(Modifier.height(14.dp))
+  Spacer(Modifier.height(10.dp))
   ThemePanel()
-  Spacer(Modifier.height(18.dp))
+  Spacer(Modifier.height(10.dp))
   DestinationPanel(state, onPickFolder, onUseDefault)
-  Spacer(Modifier.height(18.dp))
+  Spacer(Modifier.height(10.dp))
   ApkHelperPanel(state, onAllowApkInstalls)
-  Spacer(Modifier.height(18.dp))
+  Spacer(Modifier.height(10.dp))
   AboutPanel()
 }
 
 @Composable
 private fun FilesTab(files: List<ReceivedFile>, onOpen: (ReceivedFile) -> Unit) {
   ScreenTitle("Files", "Open recent transfers with Android apps.")
-  Spacer(Modifier.height(14.dp))
+  Spacer(Modifier.height(10.dp))
   RecentFilesPanel(files, onOpen)
 }
 
@@ -184,9 +184,9 @@ private fun HeroPanel(state: ReceiverState) {
     modifier =
       Modifier
         .fillMaxWidth()
-        .clip(RoundedCornerShape(24.dp))
+        .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.primary)
-        .padding(22.dp),
+        .padding(16.dp),
   ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       Box(
@@ -206,7 +206,7 @@ private fun HeroPanel(state: ReceiverState) {
       }
     }
 
-    Spacer(Modifier.height(22.dp))
+    Spacer(Modifier.height(14.dp))
     Text(
       "Keep this phone open and on the same local connection as the desktop sender.",
       style = MaterialTheme.typography.titleLarge,
@@ -238,7 +238,7 @@ private fun InfoPanel(state: ReceiverState) {
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
         .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(18.dp),
+        .padding(14.dp),
   ) {
     PanelTitle("Connection", "Local reachability")
     Spacer(Modifier.height(14.dp))
@@ -284,7 +284,7 @@ private fun DestinationPanel(state: ReceiverState, onPickFolder: () -> Unit, onU
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
         .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(18.dp),
+        .padding(14.dp),
   ) {
     PanelTitle("Storage", "Save destination")
     Spacer(Modifier.height(8.dp))
@@ -312,7 +312,7 @@ private fun ThemePanel() {
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
         .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(18.dp),
+        .padding(14.dp),
   ) {
     PanelTitle("Theme", "Keep the app aligned with the web portal.")
     Spacer(Modifier.height(12.dp))
@@ -374,7 +374,7 @@ private fun AboutPanel() {
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
         .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(18.dp),
+        .padding(14.dp),
   ) {
     PanelTitle("About", "Open-source local-only sharing.")
     Spacer(Modifier.height(12.dp))
@@ -401,7 +401,7 @@ private fun SettingChoice(title: String, selected: Boolean, onClick: () -> Unit)
         .fillMaxWidth()
         .clip(RoundedCornerShape(14.dp))
         .clickable(onClick = onClick)
-        .padding(vertical = 12.dp),
+        .padding(vertical = 10.dp),
     horizontalArrangement = Arrangement.SpaceBetween,
     verticalAlignment = Alignment.CenterVertically,
   ) {
@@ -438,7 +438,7 @@ private fun FeaturePanel(title: String, body: String, action: @Composable () -> 
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
         .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(18.dp),
+        .padding(14.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Column(modifier = Modifier.weight(1f)) {
@@ -460,7 +460,7 @@ private fun StatusPanel(state: ReceiverState) {
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
         .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(18.dp),
+        .padding(14.dp),
   ) {
     PanelTitle("Receiving", if (state.isReceiving) "Transfer in progress" else "Waiting for files")
     Spacer(Modifier.height(10.dp))
@@ -504,7 +504,7 @@ private fun RecentFilesPanel(files: List<ReceivedFile>, onOpen: (ReceivedFile) -
         .clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.surface)
         .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
-        .padding(18.dp),
+        .padding(14.dp),
   ) {
     PanelTitle("Files", "Recent received items")
     Spacer(Modifier.height(10.dp))
@@ -519,7 +519,7 @@ private fun RecentFilesPanel(files: List<ReceivedFile>, onOpen: (ReceivedFile) -
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .clickable { onOpen(file) }
-            .padding(vertical = 12.dp),
+            .padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
       ) {
