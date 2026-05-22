@@ -10,23 +10,37 @@ import io.github.tjdam007.dropdroid.AppThemePreference
 private val DarkColorScheme =
   darkColorScheme(
     primary = Mist80,
+    onPrimary = DarkInk,
     secondary = Coral80,
+    onSecondary = DarkInk,
     tertiary = Blue80,
+    onTertiary = DarkInk,
     background = DarkInk,
+    onBackground = Mist80,
     surface = DarkSurface,
+    onSurface = Mist80,
     surfaceVariant = DarkSurfaceSoft,
+    onSurfaceVariant = MistMuted,
+    outline = DarkOutline,
+    outlineVariant = DarkOutlineVariant,
   )
 
 private val LightColorScheme =
   lightColorScheme(
     primary = Teal40,
+    onPrimary = androidx.compose.ui.graphics.Color.White,
     secondary = Clay40,
+    onSecondary = androidx.compose.ui.graphics.Color.White,
     tertiary = Blue40,
+    onTertiary = androidx.compose.ui.graphics.Color.White,
     background = Paper,
     surface = androidx.compose.ui.graphics.Color.White,
     surfaceVariant = SurfaceSoft,
     onBackground = Ink,
     onSurface = Ink,
+    onSurfaceVariant = Muted,
+    outline = Line,
+    outlineVariant = LineSoft,
   )
 
 @Composable

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,6 +36,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -120,7 +122,7 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
           .background(MaterialTheme.colorScheme.background)
           .verticalScroll(rememberScrollState())
           .padding(paddingValues)
-          .padding(horizontal = 10.dp, vertical = 10.dp),
+          .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
       when (AppTab.valueOf(selectedTab)) {
         AppTab.Receive -> ReceiveTab(state)
@@ -138,7 +140,7 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
             onAllowApkInstalls = { ApkDropServer.openInstallPermissionSettings(context) },
           )
       }
-      Spacer(Modifier.height(10.dp))
+      Spacer(Modifier.height(40.dp))
     }
   }
 }
@@ -198,27 +200,31 @@ private fun HeroPanel(state: ReceiverState) {
       Box(
         modifier =
           Modifier
-            .size(52.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White.copy(alpha = 0.18f)),
+            .size(48.dp)
+            .clip(RoundedCornerShape(15.dp))
+            .background(contentColorFor(MaterialTheme.colorScheme.primary).copy(alpha = 0.12f)),
         contentAlignment = Alignment.Center,
       ) {
-        Text("DD", color = Color.White, fontWeight = FontWeight.ExtraBold)
+        Text("DD", color = contentColorFor(MaterialTheme.colorScheme.primary), fontWeight = FontWeight.ExtraBold)
       }
       Spacer(Modifier.width(14.dp))
       Column {
-        Text("DropDroid", style = MaterialTheme.typography.headlineLarge, color = Color.White)
-        Text("Secure local receiver", color = Color.White.copy(alpha = 0.78f), fontWeight = FontWeight.SemiBold)
+        Text("DropDroid", style = MaterialTheme.typography.headlineLarge, color = contentColorFor(MaterialTheme.colorScheme.primary))
+        Text(
+          "Secure local receiver",
+          color = contentColorFor(MaterialTheme.colorScheme.primary).copy(alpha = 0.76f),
+          fontWeight = FontWeight.SemiBold,
+        )
       }
     }
 
-    Spacer(Modifier.height(14.dp))
+    Spacer(Modifier.height(12.dp))
     Text(
       "Keep this phone open and on the same local connection as the desktop sender.",
       style = MaterialTheme.typography.titleLarge,
-      color = Color.White,
+      color = contentColorFor(MaterialTheme.colorScheme.primary),
     )
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(10.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       StatusPill(if (state.running) "Receiver online" else "Receiver offline")
       StatusPill(if (state.isPaired) "Portal paired" else "Pairing needed")
@@ -298,14 +304,10 @@ private fun DestinationPanel(state: ReceiverState, onPickFolder: () -> Unit, onU
     Spacer(Modifier.height(14.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
       OutlinedButton(onClick = onPickFolder) {
-        Icon(painter = painterResource(R.drawable.ic_lucide_folder), contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Choose folder")
+        IconText(R.drawable.ic_lucide_folder, "Choose folder")
       }
       TextButton(onClick = onUseDefault) {
-        Icon(painter = painterResource(R.drawable.ic_lucide_refresh), contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Use default")
+        IconText(R.drawable.ic_lucide_refresh, "Default")
       }
     }
   }
@@ -343,9 +345,7 @@ private fun PairingPanel(state: ReceiverState, onScanQr: () -> Unit) {
     body = if (state.isPaired) "Only the paired portal can send files to this phone." else "Scan the QR shown on the desktop portal before receiving files.",
     action = {
       Button(onClick = onScanQr) {
-        Icon(painter = painterResource(R.drawable.ic_lucide_qr_code), contentDescription = null, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(if (state.isPaired) "Rescan" else "Scan QR")
+        IconText(R.drawable.ic_lucide_qr_code, if (state.isPaired) "Rescan" else "Scan QR")
       }
     },
   )
@@ -369,11 +369,9 @@ private fun ApkHelperPanel(state: ReceiverState, onAllowApkInstalls: () -> Unit)
     Spacer(Modifier.height(10.dp))
     OutlinedButton(
       onClick = onAllowApkInstalls,
-      modifier = Modifier.fillMaxWidth(),
+      modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
     ) {
-      Icon(painter = painterResource(R.drawable.ic_lucide_external_link), contentDescription = null, modifier = Modifier.size(18.dp))
-      Spacer(Modifier.width(8.dp))
-      Text("Allow installs from DropDroid")
+      IconText(R.drawable.ic_lucide_external_link, "Allow APK installs")
     }
   }
 }
@@ -400,11 +398,9 @@ private fun AboutPanel() {
       onClick = {
         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/tjdam007/DropDroid")))
       },
-      modifier = Modifier.fillMaxWidth(),
+      modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
     ) {
-      Icon(painter = painterResource(R.drawable.ic_lucide_external_link), contentDescription = null, modifier = Modifier.size(18.dp))
-      Spacer(Modifier.width(8.dp))
-      Text("View GitHub repository")
+      IconText(R.drawable.ic_lucide_external_link, "View GitHub repository")
     }
   }
 }
@@ -441,8 +437,15 @@ private fun InfoRow(label: String, value: String) {
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    Text(value, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+    Text(value, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
   }
+}
+
+@Composable
+private fun IconText(iconRes: Int, text: String) {
+  Icon(painter = painterResource(iconRes), contentDescription = null, modifier = Modifier.size(18.dp))
+  Spacer(Modifier.width(8.dp))
+  Text(text)
 }
 
 @Composable
@@ -568,10 +571,10 @@ private fun StatusPill(text: String) {
     modifier =
       Modifier
         .clip(RoundedCornerShape(999.dp))
-        .background(Color.White.copy(alpha = 0.16f))
-        .padding(horizontal = 14.dp, vertical = 8.dp),
+        .background(contentColorFor(MaterialTheme.colorScheme.primary).copy(alpha = 0.12f))
+        .padding(horizontal = 14.dp, vertical = 7.dp),
   ) {
-    Text(text, color = Color.White, fontWeight = FontWeight.Bold)
+    Text(text, color = contentColorFor(MaterialTheme.colorScheme.primary), fontWeight = FontWeight.Bold)
   }
 }
 

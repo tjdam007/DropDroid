@@ -20,3 +20,4 @@ android-app/local.properties
 # Generated packages
 *.apk
 *.aab
+screenshots/
