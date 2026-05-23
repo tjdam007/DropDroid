@@ -252,6 +252,19 @@ h1 {
   background: var(--soft);
 }
 
+.device.connected {
+  border-color: rgba(0, 106, 99, 0.5);
+}
+
+.device.unpaired {
+  border-color: rgba(201, 98, 43, 0.38);
+  background: #fffaf7;
+}
+
+.device.offline {
+  border-color: rgba(157, 36, 36, 0.28);
+}
+
 .device strong,
 .device span {
   display: block;
@@ -264,6 +277,38 @@ h1 {
   margin-top: 4px;
   color: var(--muted);
   font-size: 13px;
+}
+
+.device-topline {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.device-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--accent-dark) !important;
+  font-size: 11px !important;
+  font-weight: 900;
+  padding: 4px 8px;
+  text-transform: uppercase;
+}
+
+.device.unpaired .device-status {
+  background: var(--warm-soft);
+  color: var(--warm) !important;
+}
+
+.device.offline .device-status {
+  background: #ffe8e8;
+  color: #9d2424 !important;
+}
+
+.device-message {
+  white-space: normal !important;
 }
 
 .manual-label {

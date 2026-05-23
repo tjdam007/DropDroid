@@ -1,6 +1,7 @@
 let devices = [];
 let selectedDevice = null;
 let transfers = [];
+let deviceStatuses = new Map();
 
 const deviceList = document.querySelector('#deviceList');
 const deviceCount = document.querySelector('#deviceCount');
@@ -27,6 +28,10 @@ if (!window.apkDrop) {
     },
     getDevices: async () => {
       const response = await fetch('/api/devices');
+      return response.json();
+    },
+    pingDevice: async (target) => {
+      const response = await fetch(`/api/ping?ip=${encodeURIComponent(target.ip)}&port=${encodeURIComponent(target.port || 47881)}`);
       return response.json();
     },
     uploadFile: async (file, target, onProgress) => {
@@ -156,7 +161,8 @@ function readableSize(bytes) {
 
 function renderDevices() {
   deviceCount.textContent = String(devices.length);
-  signal.textContent = devices.length ? 'Device found' : 'Looking for device';
+  const connectedCount = devices.filter((device) => deviceStatuses.get(device.id)?.paired).length;
+  signal.textContent = connectedCount ? 'Device connected' : devices.length ? 'Pairing needed' : 'Looking for device';
 
   if (!devices.length) {
     deviceList.innerHTML = '<p class="empty">Open DropDroid on Android and keep both devices on the same local connection. If discovery fails, enter one of the IPs shown on the phone.</p>';
@@ -164,15 +170,27 @@ function renderDevices() {
     deviceList.innerHTML = '';
     for (const device of devices) {
       const button = document.createElement('button');
-      button.className = `device ${selectedDevice?.id === device.id ? 'selected' : ''}`;
+      const status = deviceStatuses.get(device.id);
+      const statusClass = status?.paired ? 'connected' : status?.reachable ? 'unpaired' : status ? 'offline' : 'checking';
+      const statusLabel = status?.paired ? 'Connected' : status?.reachable ? 'Not connected' : status ? 'Offline' : 'Checking';
+      button.className = `device ${selectedDevice?.id === device.id ? 'selected' : ''} ${statusClass}`;
       const addressText =
         device.advertisedIp && device.advertisedIp !== device.ip
           ? `${device.ip}:${device.port} · phone shows ${device.advertisedIp}`
           : `${device.ip}:${device.port}`;
-      button.innerHTML = `<strong>${escapeHtml(device.name)}</strong><span>${escapeHtml(addressText)}</span>`;
+      button.innerHTML = `
+        <span class="device-topline">
+          <strong>${escapeHtml(device.name)}</strong>
+          <span class="device-status">${escapeHtml(statusLabel)}</span>
+        </span>
+        <span>${escapeHtml(addressText)}</span>
+        <span class="device-message">${escapeHtml(status?.message || 'Checking secure pairing...')}</span>
+      `;
       button.addEventListener('click', () => {
         selectedDevice = device;
-        targetText.textContent = `Sending to ${device.name} at ${device.ip}`;
+        targetText.textContent = status?.paired
+          ? `Sending to ${device.name} at ${device.ip}`
+          : `${device.name} is visible, but not connected to this QR session. Scan this QR in DropDroid.`;
         renderDevices();
       });
       deviceList.appendChild(button);
@@ -196,15 +214,35 @@ function useManualDevice() {
     ip,
     port: 47881,
   };
-  targetText.textContent = `Sending to ${ip}`;
-  statusLine.textContent = 'Manual device selected';
+  if (!devices.some((device) => device.id === selectedDevice.id)) {
+    devices = [selectedDevice, ...devices];
+  }
+  targetText.textContent = `Checking ${ip}...`;
+  statusLine.textContent = 'Checking manual device';
   renderDevices();
+  pingDevice(selectedDevice);
 }
 
 async function sendFile(file) {
   if (!selectedDevice) {
-    statusLine.textContent = 'Scan the QR on Android, then choose a paired device';
+    statusLine.textContent = 'Scan the QR on Android, then choose a connected device';
     return;
+  }
+
+  const selectedStatus = deviceStatuses.get(selectedDevice.id);
+  if (!selectedStatus?.paired) {
+    await pingDevice(selectedDevice);
+    const freshStatus = deviceStatuses.get(selectedDevice.id);
+    if (!freshStatus?.paired) {
+      statusLine.textContent = freshStatus?.reachable
+        ? 'Phone found, but not connected to this QR session. Scan the QR again.'
+        : 'Phone is not reachable. Keep DropDroid open and check the local connection.';
+      targetText.textContent = 'Scan this QR in DropDroid before sending files.';
+      renderDevices();
+      return;
+    }
+    targetText.textContent = `Sending to ${selectedDevice.name} at ${selectedDevice.ip}`;
+    renderDevices();
   }
 
   const isApk = file.name.toLowerCase().endsWith('.apk');
@@ -238,6 +276,15 @@ async function retryTransfer(id) {
   if (!selectedDevice) {
     updateTransfer(id, { status: 'Error', detail: 'Choose a connected device before retrying' });
     return;
+  }
+  const selectedStatus = deviceStatuses.get(selectedDevice.id);
+  if (!selectedStatus?.paired) {
+    await pingDevice(selectedDevice);
+    if (!deviceStatuses.get(selectedDevice.id)?.paired) {
+      updateTransfer(id, { status: 'Error', detail: 'Scan the QR again before retrying' });
+      statusLine.textContent = 'Phone found, but not connected to this QR session.';
+      return;
+    }
   }
 
   updateTransfer(id, { status: 'Hashing', detail: 'Retrying securely', progress: 0.03 });
@@ -297,11 +344,15 @@ window.apkDrop.onDevices((nextDevices) => {
   devices = nextDevices;
   if (selectedDevice) {
     selectedDevice = devices.find((device) => device.id === selectedDevice.id) || selectedDevice;
-  } else if (devices.length === 1) {
-    selectedDevice = devices[0];
-    targetText.textContent = `Sending to ${selectedDevice.name} at ${selectedDevice.ip}`;
+  } else {
+    const connectedDevice = devices.find((device) => deviceStatuses.get(device.id)?.paired);
+    if (connectedDevice) {
+      selectedDevice = connectedDevice;
+      targetText.textContent = `Sending to ${selectedDevice.name} at ${selectedDevice.ip}`;
+    }
   }
   renderDevices();
+  pingVisibleDevices();
 });
 
 window.apkDrop.getDevices().then((nextDevices) => {
@@ -312,7 +363,50 @@ window.apkDrop.getDevices().then((nextDevices) => {
 window.apkDrop.getPairing().then((pairing) => {
   qrBox.innerHTML = pairing.svg;
   pairId.textContent = `Session ${pairing.portalId}`;
+  pingVisibleDevices();
 });
 
 renderDevices();
 renderTransfers();
+
+async function pingDevice(device) {
+  if (!device?.ip) return;
+  const pendingStatus = deviceStatuses.get(device.id);
+  if (!pendingStatus) {
+    deviceStatuses.set(device.id, { reachable: false, paired: false, message: 'Checking secure pairing...' });
+    renderDevices();
+  }
+  try {
+    const status = await window.apkDrop.pingDevice(device);
+    const nextStatus = {
+      reachable: status.reachable === true,
+      paired: status.paired === true,
+      message: status.message || (status.paired ? 'Connected to this portal' : 'Scan this portal QR'),
+      checkedAt: status.checkedAt || Date.now(),
+    };
+    deviceStatuses.set(device.id, nextStatus);
+    if (status.name && device.name !== status.name) {
+      devices = devices.map((item) => (item.id === device.id ? { ...item, name: status.name } : item));
+    }
+    if (selectedDevice?.id === device.id) {
+      selectedDevice = { ...selectedDevice, name: status.name || selectedDevice.name };
+      targetText.textContent = nextStatus.paired
+        ? `Sending to ${selectedDevice.name} at ${selectedDevice.ip}`
+        : `${selectedDevice.name} is visible, but not connected to this QR session. Scan this QR in DropDroid.`;
+    }
+  } catch {
+    deviceStatuses.set(device.id, { reachable: false, paired: false, message: 'Not reachable', checkedAt: Date.now() });
+  }
+  renderDevices();
+}
+
+function pingVisibleDevices() {
+  for (const device of devices) {
+    const status = deviceStatuses.get(device.id);
+    if (!status || Date.now() - status.checkedAt > 5000) {
+      pingDevice(device);
+    }
+  }
+}
+
+setInterval(pingVisibleDevices, 5000);

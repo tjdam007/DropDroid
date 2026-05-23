@@ -196,6 +196,10 @@ object ApkDropServer {
             val input = BufferedInputStream(client.getInputStream())
             val output = client.getOutputStream()
             val requestLine = input.readLineAscii()
+            if (requestLine.startsWith("GET /ping")) {
+                handlePing(context, output, requestLine)
+                return
+            }
             if (!requestLine.startsWith("PUT /upload")) {
                 output.writeHttp(404, "Not found")
                 return
@@ -276,6 +280,24 @@ object ApkDropServer {
                 openUri(context, target.uri, "application/vnd.android.package-archive")
             }
         }
+    }
+
+    private fun handlePing(context: Context, output: OutputStream, requestLine: String) {
+        val requestPath = requestLine.substringAfter("GET ").substringBefore(" HTTP/")
+        val portalId = requestPath.substringAfter("portalId=", "").substringBefore('&').decodeUrl()
+        val prefs = context.applicationContext.getSharedPreferences("apk_drop", Context.MODE_PRIVATE)
+        val pairedPortalId = prefs.getString("paired_portal_id", "") ?: ""
+        val paired = pairedPortalId.isNotBlank() && portalId.isNotBlank() && pairedPortalId == portalId
+        val body =
+            org.json.JSONObject()
+                .put("app", "DropDroid")
+                .put("version", 1)
+                .put("name", Build.MODEL)
+                .put("paired", paired)
+                .put("hasPairing", pairedPortalId.isNotBlank())
+                .put("message", if (paired) "Connected to this portal" else "Scan this portal QR")
+                .toString()
+        output.writeHttp(200, body, "application/json; charset=utf-8")
     }
 
     private fun runBeacon(context: Context) {
@@ -476,15 +498,20 @@ object ApkDropServer {
         return bytes.toByteArray().toString(StandardCharsets.US_ASCII)
     }
 
-    private fun java.io.OutputStream.writeHttp(status: Int, body: String) {
+    private fun java.io.OutputStream.writeHttp(status: Int, body: String, contentType: String = "text/plain; charset=utf-8") {
         val reason = when (status) {
             200 -> "OK"
+            400 -> "Bad Request"
+            401 -> "Unauthorized"
             404 -> "Not Found"
             411 -> "Length Required"
             else -> "Error"
         }
         val data = body.toByteArray(StandardCharsets.UTF_8)
-        write("HTTP/1.1 $status $reason\r\nContent-Length: ${data.size}\r\nConnection: close\r\n\r\n".toByteArray())
+        write(
+            "HTTP/1.1 $status $reason\r\nContent-Type: $contentType\r\nContent-Length: ${data.size}\r\nConnection: close\r\n\r\n"
+                .toByteArray(StandardCharsets.UTF_8),
+        )
         write(data)
         flush()
     }

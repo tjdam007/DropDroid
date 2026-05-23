@@ -156,12 +156,58 @@ function formatConnectionError(error, target) {
   return error.message || 'Could not send file';
 }
 
+function pingAndroid(target) {
+  return new Promise((resolve) => {
+    const request = http.request(
+      {
+        method: 'GET',
+        hostname: target.ip,
+        port: target.port || DEFAULT_DEVICE_PORT,
+        path: `/ping?portalId=${encodeURIComponent(portalId)}`,
+        timeout: 3000,
+      },
+      (response) => {
+        let body = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          body += chunk;
+        });
+        response.on('end', () => {
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            resolve({ reachable: true, paired: false, message: 'Update DropDroid, then scan this QR', checkedAt: Date.now() });
+            return;
+          }
+          try {
+            const payload = JSON.parse(body || '{}');
+            resolve({
+              reachable: response.statusCode >= 200 && response.statusCode < 300,
+              paired: payload.paired === true,
+              message: payload.message || 'Phone responded',
+              name: payload.name,
+              checkedAt: Date.now(),
+            });
+          } catch {
+            resolve({ reachable: true, paired: false, message: 'Phone responded without pairing status', checkedAt: Date.now() });
+          }
+        });
+      },
+    );
+
+    request.on('timeout', () => request.destroy(new Error('Ping timed out')));
+    request.on('error', () => {
+      resolve({ reachable: false, paired: false, message: 'Not reachable', checkedAt: Date.now() });
+    });
+    request.end();
+  });
+}
+
 ipcMain.handle('upload-file', async (_event, { filePath, target }) => {
   if (!filePath || !target?.ip) throw new Error('Choose a device before sending');
   return uploadFile(filePath, target);
 });
 
 ipcMain.handle('get-devices', () => Array.from(devices.values()));
+ipcMain.handle('ping-device', async (_event, target) => pingAndroid(target));
 ipcMain.handle('get-pairing', async () => {
   const payload = JSON.stringify({ app: 'DropDroid', version: 1, portalId, secret: pairingSecret, createdAt: Date.now() });
   const svg = await QRCode.toString(payload, { type: 'svg', errorCorrectionLevel: 'M', margin: 2 });

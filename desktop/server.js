@@ -124,6 +124,51 @@ function formatConnectionError(error, target) {
   return error.message || 'Could not send file';
 }
 
+function pingAndroid(target) {
+  return new Promise((resolve) => {
+    const request = http.request(
+      {
+        method: 'GET',
+        hostname: target.ip,
+        port: target.port || DEFAULT_DEVICE_PORT,
+        path: `/ping?portalId=${encodeURIComponent(portalId)}`,
+        timeout: 3000,
+      },
+      (response) => {
+        let body = '';
+        response.setEncoding('utf8');
+        response.on('data', (chunk) => {
+          body += chunk;
+        });
+        response.on('end', () => {
+          if (response.statusCode < 200 || response.statusCode >= 300) {
+            resolve({ reachable: true, paired: false, message: 'Update DropDroid, then scan this QR', checkedAt: Date.now() });
+            return;
+          }
+          try {
+            const payload = JSON.parse(body || '{}');
+            resolve({
+              reachable: response.statusCode >= 200 && response.statusCode < 300,
+              paired: payload.paired === true,
+              message: payload.message || 'Phone responded',
+              name: payload.name,
+              checkedAt: Date.now(),
+            });
+          } catch {
+            resolve({ reachable: true, paired: false, message: 'Phone responded without pairing status', checkedAt: Date.now() });
+          }
+        });
+      },
+    );
+
+    request.on('timeout', () => request.destroy(new Error('Ping timed out')));
+    request.on('error', () => {
+      resolve({ reachable: false, paired: false, message: 'Not reachable', checkedAt: Date.now() });
+    });
+    request.end();
+  });
+}
+
 function serveStatic(response, pathname) {
   const normalized = pathname === '/' ? '/index.html' : pathname;
   const filePath = path.normalize(path.join(publicDir, normalized));
@@ -181,6 +226,22 @@ function startUiServer() {
     if (url.pathname === '/api/devices') {
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify(Array.from(devices.values())));
+      return;
+    }
+
+    if (url.pathname === '/api/ping') {
+      const target = {
+        ip: url.searchParams.get('ip'),
+        port: Number(url.searchParams.get('port') || DEFAULT_DEVICE_PORT),
+      };
+      if (!target.ip) {
+        response.writeHead(400, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ reachable: false, paired: false, message: 'Missing phone IP' }));
+        return;
+      }
+      const result = await pingAndroid(target);
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify(result));
       return;
     }
 
