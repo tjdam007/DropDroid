@@ -1,7 +1,13 @@
 {
   "name": "dropdroid",
+  "productName": "DropDroid",
   "version": "0.1.0",
   "description": "Open-source local-only file sharing for Android with an optional APK install helper.",
+  "main": "desktop/main.js",
+  "author": {
+    "name": "DropDroid Contributors",
+    "email": "noreply@github.com"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -13,7 +19,49 @@
   "scripts": {
     "start": "node desktop/server.js",
     "electron:start": "electron .",
+    "release:desktop": "electron-builder -mwl --x64 --arm64",
+    "release:desktop:mac": "electron-builder --mac --x64 --arm64",
+    "release:desktop:win": "electron-builder --win --x64 --arm64",
+    "release:desktop:linux": "electron-builder --linux --x64 --arm64",
     "android:build": "cd android-app && ./gradlew assembleDebug",
     "android:install": "cd android-app && ./gradlew installDebug"
+  },
+  "build": {
+    "appId": "io.github.tjdam007.dropdroid",
+    "productName": "DropDroid",
+    "directories": {
+      "output": "release/desktop"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "icon": "desktop/assets/icon.icns",
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "icon": "desktop/assets/icon.ico",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "linux": {
+      "icon": "desktop/assets/icons",
+      "category": "Utility",
+      "maintainer": "DropDroid Contributors <noreply@github.com>",
+      "target": [
+        "AppImage"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.2.0",
+    "electron-builder": "^26.8.1"
   }
 }
