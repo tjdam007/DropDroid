@@ -8,6 +8,7 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -271,12 +272,16 @@ private fun HeroPanel(state: ReceiverState) {
       Box(
         modifier =
           Modifier
-            .size(44.dp)
+            .size(52.dp)
             .clip(RoundedCornerShape(DropRadius.md))
-            .background(MaterialTheme.colorScheme.primary),
+            .background(MaterialTheme.colorScheme.primaryContainer),
         contentAlignment = Alignment.Center,
       ) {
-        Text("DD", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.ExtraBold)
+        Image(
+          painter = painterResource(R.drawable.dropdroid_logo),
+          contentDescription = "DropDroid logo",
+          modifier = Modifier.fillMaxSize(),
+        )
       }
       Spacer(Modifier.width(DropSpacing.md))
       Column(modifier = Modifier.weight(1f)) {
@@ -503,7 +508,18 @@ private fun ApkHelperPanel(state: ReceiverState, onAllowApkInstalls: () -> Unit)
 private fun AboutPanel() {
   val context = LocalContext.current
   DropPanel {
-    PanelTitle("About", "Open-source local-only sharing.")
+    Row(verticalAlignment = Alignment.CenterVertically) {
+      Image(
+        painter = painterResource(R.drawable.dropdroid_logo),
+        contentDescription = "DropDroid logo",
+        modifier =
+          Modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(DropRadius.md)),
+      )
+      Spacer(Modifier.width(DropSpacing.md))
+      PanelTitle("About", "Open-source local-only sharing.")
+    }
     Spacer(Modifier.height(DropSpacing.md))
     InfoRow("Version", BuildConfig.VERSION_NAME)
     Spacer(Modifier.height(DropSpacing.md))

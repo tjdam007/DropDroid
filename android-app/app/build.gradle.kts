@@ -8,7 +8,7 @@ android {
     namespace = "io.github.tjdam007.dropdroid"
     compileSdk = 36
     defaultConfig {
-        applicationId = "io.github.tjdam007.dropdroid"
+        applicationId = "dev.mjandroid.dropdroid"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
