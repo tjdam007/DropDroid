@@ -8,6 +8,7 @@ const QRCode = require('qrcode');
 
 const BEACON_PORT = 47882;
 const DEFAULT_DEVICE_PORT = 47881;
+const LOCAL_PROBE_INTERVAL_MS = 5000;
 const portalId = base64Url(crypto.randomBytes(16));
 const pairingSecret = base64Url(crypto.randomBytes(32));
 const devices = new Map();
@@ -25,6 +26,14 @@ function hmacSignature({ method, pathName, filename, size, timestamp, nonce, con
       .update([method, pathName, filename, String(size), String(timestamp), nonce, contentSha256].join('\n'))
       .digest(),
   );
+}
+
+function localAddressCandidates(payload, reachableIp) {
+  return [reachableIp, payload.ip, ...(Array.isArray(payload.addresses) ? payload.addresses : [])]
+    .filter(Boolean)
+    .filter((address) => /^\d{1,3}(\.\d{1,3}){3}$/.test(address))
+    .filter((address) => !address.startsWith('127.') && !address.startsWith('169.254.'))
+    .filter((address, index, addresses) => addresses.indexOf(address) === index);
 }
 
 function createWindow() {
@@ -55,12 +64,14 @@ function startDiscovery() {
 
       const reachableIp = remote.address;
       const advertisedIp = payload.ip || reachableIp;
+      const candidates = localAddressCandidates(payload, reachableIp);
       const key = `${reachableIp}:${payload.port || DEFAULT_DEVICE_PORT}`;
       const device = {
         id: key,
         name: payload.name || 'Android device',
         ip: reachableIp,
         advertisedIp,
+        candidates,
         port: Number(payload.port || DEFAULT_DEVICE_PORT),
         lastSeen: Date.now(),
       };
@@ -73,6 +84,7 @@ function startDiscovery() {
 
   udpSocket.bind(BEACON_PORT, () => {
     udpSocket.setBroadcast(true);
+    startLocalNetworkProbe(udpSocket);
   });
 
   setInterval(() => {
@@ -82,6 +94,15 @@ function startDiscovery() {
     }
     sendDevices();
   }, 2000);
+}
+
+function startLocalNetworkProbe(socket) {
+  const probe = Buffer.from(JSON.stringify({ app: 'DropDroidPortal', version: 1 }));
+  const sendProbe = () => {
+    socket.send(probe, 0, probe.length, BEACON_PORT, '255.255.255.255', () => {});
+  };
+  sendProbe();
+  setInterval(sendProbe, LOCAL_PROBE_INTERVAL_MS);
 }
 
 function sendDevices() {
@@ -150,18 +171,21 @@ function uploadFile(filePath, target) {
 }
 
 function formatConnectionError(error, target) {
+  if (['EACCES', 'EPERM'].includes(error.code)) {
+    return `macOS blocked local network access for DropDroid. Open System Settings > Privacy & Security > Local Network and allow DropDroid, then reopen the app.`;
+  }
   if (['ETIMEDOUT', 'EHOSTUNREACH', 'ENETUNREACH', 'ECONNREFUSED'].includes(error.code)) {
-    return `Phone not reachable at ${target.ip}:${target.port || DEFAULT_DEVICE_PORT}. Keep DropDroid open, confirm both devices share a local connection, or try the phone's shown IP manually.`;
+    return `Phone not reachable at ${target.ip}:${target.port || DEFAULT_DEVICE_PORT}. Keep DropDroid open, confirm both devices share a local connection, allow DropDroid in macOS Local Network/Firewall settings, or try the phone's shown IP manually.`;
   }
   return error.message || 'Could not send file';
 }
 
-function pingAndroid(target) {
+function pingAndroidAddress(target, ip) {
   return new Promise((resolve) => {
     const request = http.request(
       {
         method: 'GET',
-        hostname: target.ip,
+        hostname: ip,
         port: target.port || DEFAULT_DEVICE_PORT,
         path: `/ping?portalId=${encodeURIComponent(portalId)}`,
         timeout: 3000,
@@ -184,6 +208,7 @@ function pingAndroid(target) {
               paired: payload.paired === true,
               message: payload.message || 'Phone responded',
               name: payload.name,
+              ip,
               checkedAt: Date.now(),
             });
           } catch {
@@ -199,6 +224,20 @@ function pingAndroid(target) {
     });
     request.end();
   });
+}
+
+async function pingAndroid(target) {
+  const candidates = [target.ip, ...(Array.isArray(target.candidates) ? target.candidates : [])]
+    .filter(Boolean)
+    .filter((address, index, addresses) => addresses.indexOf(address) === index);
+
+  let lastStatus = { reachable: false, paired: false, message: 'Not reachable', checkedAt: Date.now() };
+  for (const ip of candidates) {
+    const status = await pingAndroidAddress(target, ip);
+    lastStatus = status;
+    if (status.reachable) return status;
+  }
+  return lastStatus;
 }
 
 ipcMain.handle('upload-file', async (_event, { filePath, target }) => {

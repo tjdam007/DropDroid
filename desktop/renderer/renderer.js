@@ -178,12 +178,17 @@ function renderDevices() {
         device.advertisedIp && device.advertisedIp !== device.ip
           ? `${device.ip}:${device.port} · phone shows ${device.advertisedIp}`
           : `${device.ip}:${device.port}`;
+      const candidateText =
+        Array.isArray(device.candidates) && device.candidates.length > 1
+          ? `<span class="device-message">Testing local IPs: ${escapeHtml(device.candidates.join(', '))}</span>`
+          : '';
       button.innerHTML = `
         <span class="device-topline">
           <strong>${escapeHtml(device.name)}</strong>
           <span class="device-status">${escapeHtml(statusLabel)}</span>
         </span>
         <span>${escapeHtml(addressText)}</span>
+        ${candidateText}
         <span class="device-message">${escapeHtml(status?.message || 'Checking secure pairing...')}</span>
       `;
       button.addEventListener('click', () => {
@@ -388,8 +393,12 @@ async function pingDevice(device) {
     if (status.name && device.name !== status.name) {
       devices = devices.map((item) => (item.id === device.id ? { ...item, name: status.name } : item));
     }
+    if (status.ip && status.ip !== device.ip) {
+      devices = devices.map((item) => (item.id === device.id ? { ...item, ip: status.ip } : item));
+      device.ip = status.ip;
+    }
     if (selectedDevice?.id === device.id) {
-      selectedDevice = { ...selectedDevice, name: status.name || selectedDevice.name };
+      selectedDevice = { ...selectedDevice, name: status.name || selectedDevice.name, ip: status.ip || selectedDevice.ip };
       targetText.textContent = nextStatus.paired
         ? `Sending to ${selectedDevice.name} at ${selectedDevice.ip}`
         : `${selectedDevice.name} is visible, but not connected to this QR session. Scan this QR in DropDroid.`;
