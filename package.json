@@ -40,7 +40,11 @@
       "icon": "desktop/assets/icon.icns",
       "category": "public.app-category.utilities",
       "extendInfo": {
-        "NSLocalNetworkUsageDescription": "DropDroid uses your local network to discover Android devices and send files directly over Wi-Fi or LAN."
+        "NSLocalNetworkUsageDescription": "DropDroid uses your local network to discover Android devices and send files directly over Wi-Fi or LAN.",
+        "NSBonjourServices": [
+          "_dropdroid._tcp",
+          "_dropdroid._udp"
+        ]
       },
       "target": [
         "dmg",

@@ -2,6 +2,7 @@ const dgram = require('node:dgram');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
+const os = require('node:os');
 const path = require('node:path');
 const QRCode = require('qrcode');
 const { URL } = require('node:url');
@@ -38,6 +39,30 @@ function localAddressCandidates(payload, reachableIp) {
     .filter((address) => /^\d{1,3}(\.\d{1,3}){3}$/.test(address))
     .filter((address) => !address.startsWith('127.') && !address.startsWith('169.254.'))
     .filter((address, index, addresses) => addresses.indexOf(address) === index);
+}
+
+function localBroadcastAddresses() {
+  const broadcasts = new Set(['255.255.255.255']);
+  for (const entries of Object.values(os.networkInterfaces())) {
+    for (const entry of entries || []) {
+      if (entry.family !== 'IPv4' || entry.internal || !entry.address || !entry.netmask) continue;
+      const address = ipv4ToInt(entry.address);
+      const netmask = ipv4ToInt(entry.netmask);
+      if (address == null || netmask == null) continue;
+      broadcasts.add(intToIpv4((address & netmask) | (~netmask >>> 0)));
+    }
+  }
+  return Array.from(broadcasts);
+}
+
+function ipv4ToInt(address) {
+  const parts = address.split('.').map((part) => Number(part));
+  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return null;
+  return parts.reduce((value, part) => ((value << 8) + part) >>> 0, 0);
+}
+
+function intToIpv4(value) {
+  return [24, 16, 8, 0].map((shift) => (value >>> shift) & 255).join('.');
 }
 
 function startDiscovery() {
@@ -82,7 +107,9 @@ function startDiscovery() {
 function startLocalNetworkProbe(socket) {
   const probe = Buffer.from(JSON.stringify({ app: 'DropDroidPortal', version: 1 }));
   const sendProbe = () => {
-    socket.send(probe, 0, probe.length, BEACON_PORT, '255.255.255.255', () => {});
+    for (const address of localBroadcastAddresses()) {
+      socket.send(probe, 0, probe.length, BEACON_PORT, address, () => {});
+    }
   };
   sendProbe();
   setInterval(sendProbe, LOCAL_PROBE_INTERVAL_MS);
