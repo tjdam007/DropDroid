@@ -15,6 +15,7 @@ const portalId = base64Url(crypto.randomBytes(16));
 const pairingSecret = base64Url(crypto.randomBytes(32));
 const devices = new Map();
 const publicDir = path.join(__dirname, 'renderer');
+let discoveryProbeInterval;
 
 function base64Url(buffer) {
   return buffer
@@ -68,6 +69,10 @@ function intToIpv4(value) {
 function startDiscovery() {
   const socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
+  socket.on('error', (error) => {
+    console.warn(`DropDroid discovery error: ${error.message}`);
+  });
+
   socket.on('message', (buffer, remote) => {
     try {
       const payload = JSON.parse(buffer.toString('utf8'));
@@ -92,7 +97,11 @@ function startDiscovery() {
   });
 
   socket.bind(BEACON_PORT, () => {
-    socket.setBroadcast(true);
+    try {
+      socket.setBroadcast(true);
+    } catch (error) {
+      console.warn(`Could not enable DropDroid broadcast discovery: ${error.message}`);
+    }
     startLocalNetworkProbe(socket);
   });
 
@@ -108,12 +117,19 @@ function startLocalNetworkProbe(socket) {
   const probe = Buffer.from(JSON.stringify({ app: 'DropDroidPortal', version: 1 }));
   const sendProbe = () => {
     for (const address of localBroadcastAddresses()) {
-      socket.send(probe, 0, probe.length, BEACON_PORT, address, () => {});
+      socket.send(probe, 0, probe.length, BEACON_PORT, address, (error) => {
+        if (error) console.warn(`DropDroid local network probe failed for ${address}: ${error.message}`);
+      });
     }
   };
   sendProbe();
-  setInterval(sendProbe, LOCAL_PROBE_INTERVAL_MS);
+  discoveryProbeInterval = setInterval(sendProbe, LOCAL_PROBE_INTERVAL_MS);
 }
+
+process.on('SIGINT', () => {
+  if (discoveryProbeInterval) clearInterval(discoveryProbeInterval);
+  process.exit(0);
+});
 
 function uploadToAndroid(request, target, filename, size, contentSha256) {
   return new Promise((resolve, reject) => {

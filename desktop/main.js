@@ -15,6 +15,7 @@ const pairingSecret = base64Url(crypto.randomBytes(32));
 const devices = new Map();
 let mainWindow;
 let udpSocket;
+let discoveryProbeInterval;
 
 function base64Url(buffer) {
   return buffer.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
@@ -82,6 +83,10 @@ function createWindow() {
 function startDiscovery() {
   udpSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
+  udpSocket.on('error', (error) => {
+    console.warn(`DropDroid discovery error: ${error.message}`);
+  });
+
   udpSocket.on('message', (buffer, remote) => {
     try {
       const payload = JSON.parse(buffer.toString('utf8'));
@@ -108,7 +113,11 @@ function startDiscovery() {
   });
 
   udpSocket.bind(BEACON_PORT, () => {
-    udpSocket.setBroadcast(true);
+    try {
+      udpSocket.setBroadcast(true);
+    } catch (error) {
+      console.warn(`Could not enable DropDroid broadcast discovery: ${error.message}`);
+    }
     startLocalNetworkProbe(udpSocket);
   });
 
@@ -125,11 +134,13 @@ function startLocalNetworkProbe(socket) {
   const probe = Buffer.from(JSON.stringify({ app: 'DropDroidPortal', version: 1 }));
   const sendProbe = () => {
     for (const address of localBroadcastAddresses()) {
-      socket.send(probe, 0, probe.length, BEACON_PORT, address, () => {});
+      socket.send(probe, 0, probe.length, BEACON_PORT, address, (error) => {
+        if (error) console.warn(`DropDroid local network probe failed for ${address}: ${error.message}`);
+      });
     }
   };
   sendProbe();
-  setInterval(sendProbe, LOCAL_PROBE_INTERVAL_MS);
+  discoveryProbeInterval = setInterval(sendProbe, LOCAL_PROBE_INTERVAL_MS);
 }
 
 function sendDevices() {
@@ -280,7 +291,19 @@ ipcMain.handle('get-pairing', async () => {
   return { portalId, payload, svg };
 });
 
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
+}
+
 app.whenReady().then(() => {
+  if (!hasSingleInstanceLock) return;
   createWindow();
   startDiscovery();
 
@@ -294,5 +317,6 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  if (discoveryProbeInterval) clearInterval(discoveryProbeInterval);
   udpSocket?.close();
 });
