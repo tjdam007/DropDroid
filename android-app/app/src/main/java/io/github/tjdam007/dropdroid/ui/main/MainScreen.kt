@@ -59,7 +59,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -107,7 +107,7 @@ private enum class AppTab(val label: String, val iconRes: Int) {
 @Composable
 internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
   val context = LocalContext.current
-  val clipboardManager = LocalClipboardManager.current
+  val clipboard = LocalClipboard.current
   val snackbarHostState = remember { SnackbarHostState() }
   val scope = rememberCoroutineScope()
   var selectedTab by rememberSaveable { mutableStateOf(AppTab.Home.name) }
@@ -173,8 +173,10 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
                 state = state,
                 onScanQr = { context.startActivity(Intent(context, QrPairingActivity::class.java)) },
                 onCopyIp = { ip ->
-                  clipboardManager.setText(AnnotatedString(ip))
-                  scope.launch { snackbarHostState.showSnackbar("IP copied: $ip") }
+                  scope.launch {
+                    clipboard.setClipEntry(androidx.compose.ui.platform.ClipEntry(android.content.ClipData.newPlainText("IP", ip)))
+                    snackbarHostState.showSnackbar("IP copied: $ip")
+                  }
                 },
               )
             AppTab.Settings ->
