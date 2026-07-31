@@ -14,6 +14,7 @@ const signal = document.querySelector('#signal');
 const fileKind = document.querySelector('#fileKind');
 const qrBox = document.querySelector('#qrBox');
 const pairId = document.querySelector('#pairId');
+const unpairButton = document.querySelector('#unpairButton');
 const manualIp = document.querySelector('#manualIp');
 const useManual = document.querySelector('#useManual');
 const pickFile = document.querySelector('#pickFile');
@@ -255,7 +256,10 @@ async function sendFile(file) {
   fileKind.textContent = isApk ? 'Android APK' : 'Any file';
   statusLine.textContent = `Preparing ${file.name}...`;
   try {
-    const payload = window.apkDrop.mode === 'electron' ? file.path : file;
+    const payload = window.apkDrop.mode === 'electron' ? (window.apkDrop.getFilePath ? window.apkDrop.getFilePath(file) : file.path) : file;
+    if (window.apkDrop.mode === 'electron' && !payload) {
+      throw new Error('Cannot send virtual files (e.g. dragged from a browser). Please drag the file directly from Finder.');
+    }
     updateTransfer(transferId, { status: 'Hashing', detail: 'Securing file', progress: 0.03 });
     const result = await window.apkDrop.uploadFile(payload, selectedDevice, (progress) => {
       updateTransfer(transferId, {
@@ -295,7 +299,10 @@ async function retryTransfer(id) {
   updateTransfer(id, { status: 'Hashing', detail: 'Retrying securely', progress: 0.03 });
   statusLine.textContent = `Retrying ${transfer.name}...`;
   try {
-    const payload = window.apkDrop.mode === 'electron' ? transfer.file.path : transfer.file;
+    const payload = window.apkDrop.mode === 'electron' ? (window.apkDrop.getFilePath ? window.apkDrop.getFilePath(transfer.file) : transfer.file.path) : transfer.file;
+    if (window.apkDrop.mode === 'electron' && !payload) {
+      throw new Error('Cannot send virtual files. Please drag the file directly from Finder.');
+    }
     const result = await window.apkDrop.uploadFile(payload, selectedDevice, (progress) => {
       updateTransfer(id, {
         status: 'Sending',
@@ -318,8 +325,9 @@ manualIp.addEventListener('keydown', (event) => {
 
 pickFile.addEventListener('click', () => filePicker.click());
 filePicker.addEventListener('change', () => {
-  const [file] = filePicker.files;
-  if (file) sendFile(file);
+  for (const file of filePicker.files) {
+    sendFile(file);
+  }
   filePicker.value = '';
 });
 
@@ -335,8 +343,9 @@ dropZone.addEventListener('dragleave', () => {
 dropZone.addEventListener('drop', (event) => {
   event.preventDefault();
   dropZone.classList.remove('dragging');
-  const [file] = event.dataTransfer.files;
-  if (file) sendFile(file);
+  for (const file of event.dataTransfer.files) {
+    sendFile(file);
+  }
 });
 
 transferList.addEventListener('click', (event) => {
@@ -373,6 +382,25 @@ window.apkDrop.getPairing().then((pairing) => {
 
 renderDevices();
 renderTransfers();
+
+unpairButton.addEventListener('click', async () => {
+  try {
+    if (window.apkDrop.mode === 'electron' && window.apkDrop.unpair) {
+      await window.apkDrop.unpair();
+    } else {
+      await fetch('/api/unpair', { method: 'POST' });
+    }
+    const pairing = await window.apkDrop.getPairing();
+    qrBox.innerHTML = pairing.svg;
+    pairId.textContent = `Session ${pairing.portalId}`;
+    devices = [];
+    selectedDevice = null;
+    deviceStatuses.clear();
+    renderDevices();
+  } catch (err) {
+    console.error('Failed to unpair:', err);
+  }
+});
 
 async function pingDevice(device) {
   if (!device?.ip) return;

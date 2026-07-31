@@ -22,9 +22,12 @@
       <section class="workspace">
         <aside class="device-panel">
           <div class="pair-panel">
-            <div>
-              <h2>Pair phone</h2>
-              <p>Scan this QR inside DropDroid before sending files.</p>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div>
+                <h2>Pair phone</h2>
+                <p>Scan this QR inside DropDroid before sending files.</p>
+              </div>
+              <button class="icon-button" id="unpairButton">Unpair</button>
             </div>
             <div class="qr-box" id="qrBox">Loading QR</div>
             <div class="pair-id" id="pairId">Creating secure session...</div>
@@ -52,7 +55,7 @@
         </aside>
 
         <section class="drop-zone" id="dropZone">
-          <input id="filePicker" type="file" hidden />
+          <input id="filePicker" type="file" multiple hidden />
           <div class="drop-card">
             <div class="drop-icon">
               <svg class="lucide" aria-hidden="true" viewBox="0 0 24 24">

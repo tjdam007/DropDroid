@@ -11,8 +11,8 @@ const APP_PORT = Number(process.env.PORT || 38531);
 const BEACON_PORT = 47882;
 const DEFAULT_DEVICE_PORT = 47881;
 const LOCAL_PROBE_INTERVAL_MS = 5000;
-const portalId = base64Url(crypto.randomBytes(16));
-const pairingSecret = base64Url(crypto.randomBytes(32));
+let portalId = base64Url(crypto.randomBytes(16));
+let pairingSecret = base64Url(crypto.randomBytes(32));
 const devices = new Map();
 const publicDir = path.join(__dirname, 'renderer');
 let discoveryProbeInterval;
@@ -307,6 +307,15 @@ function startUiServer() {
       return;
     }
 
+    if (url.pathname === '/api/unpair' && request.method === 'POST') {
+      portalId = base64Url(crypto.randomBytes(16));
+      pairingSecret = base64Url(crypto.randomBytes(32));
+      devices.clear();
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ success: true }));
+      return;
+    }
+
     if (url.pathname === '/api/devices') {
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify(Array.from(devices.values())));
@@ -353,7 +362,7 @@ function startUiServer() {
     serveStatic(response, url.pathname);
   });
 
-  server.listen(APP_PORT, () => {
+  server.listen(APP_PORT, '127.0.0.1', () => {
     console.log(`DropDroid desktop tool: http://localhost:${APP_PORT}`);
   });
 }

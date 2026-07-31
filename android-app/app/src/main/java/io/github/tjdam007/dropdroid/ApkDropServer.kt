@@ -166,6 +166,21 @@ object ApkDropServer {
         return true
     }
 
+    fun unpair(context: Context) {
+        context.applicationContext
+            .getSharedPreferences("apk_drop", Context.MODE_PRIVATE)
+            .edit()
+            .remove("paired_portal_id")
+            .remove("paired_secret")
+            .apply()
+        mutableState.update {
+            it.copy(
+                pairedPortalId = "",
+                lastMessage = "Pairing removed. Scan a new portal QR.",
+            )
+        }
+    }
+
     fun openInstallPermissionSettings(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
@@ -218,6 +233,12 @@ object ApkDropServer {
             val contentLength = headers["content-length"]?.toLongOrNull()
             if (contentLength == null || contentLength <= 0L) {
                 output.writeHttp(411, "Missing content length")
+                return
+            }
+
+            val usableSpace = Environment.getDataDirectory().usableSpace
+            if (contentLength > usableSpace - 50 * 1024 * 1024) {
+                output.writeHttp(413, "Insufficient storage space")
                 return
             }
 
@@ -415,8 +436,14 @@ object ApkDropServer {
         if (kotlin.math.abs(System.currentTimeMillis() - timestampMillis) > 5 * 60 * 1000) {
             return AuthResult(false, "Expired transfer signature")
         }
+        if (usedNonces.contains(nonce)) return AuthResult(false, "Replay blocked")
+
+        val expected = hmac(secret, listOf("PUT", requestPath, filename, contentLength.toString(), timestamp, nonce, contentHash).joinToString("\n"))
+        if (!MessageDigest.isEqual(expected.toByteArray(), signature.toByteArray())) {
+            return AuthResult(false, "Bad transfer signature")
+        }
+
         synchronized(usedNonces) {
-            if (usedNonces.contains(nonce)) return AuthResult(false, "Replay blocked")
             usedNonces.add(nonce)
             if (usedNonces.size > 200) {
                 val iterator = usedNonces.iterator()
@@ -427,11 +454,6 @@ object ApkDropServer {
                     }
                 }
             }
-        }
-
-        val expected = hmac(secret, listOf("PUT", requestPath, filename, contentLength.toString(), timestamp, nonce, contentHash).joinToString("\n"))
-        if (!MessageDigest.isEqual(expected.toByteArray(), signature.toByteArray())) {
-            return AuthResult(false, "Bad transfer signature")
         }
         return AuthResult(true)
     }

@@ -118,7 +118,7 @@ class QrPairingActivity : ComponentActivity() {
       MlKitAnalyzer(
         listOf(scanner),
         CameraController.COORDINATE_SYSTEM_VIEW_REFERENCED,
-        cameraExecutor,
+        ContextCompat.getMainExecutor(this),
       ) { result ->
         if (paired) return@MlKitAnalyzer
         val rawValue = result?.getValue(scanner)?.firstOrNull()?.rawValue ?: return@MlKitAnalyzer
@@ -126,20 +126,14 @@ class QrPairingActivity : ComponentActivity() {
           .onSuccess { success ->
             if (success) {
               paired = true
-              runOnUiThread {
-                window.decorView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                finish()
-              }
+              window.decorView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+              finish()
             } else {
-              runOnUiThread {
-                scanError = "Invalid QR. Use the code shown on the DropDroid desktop portal."
-              }
+              scanError = "Invalid QR. Use the code shown on the DropDroid desktop portal."
             }
           }
           .onFailure {
-            runOnUiThread {
-              scanError = "Could not read this QR. Try scanning the desktop portal again."
-            }
+            scanError = "Could not read this QR. Try scanning the desktop portal again."
           }
       },
     )

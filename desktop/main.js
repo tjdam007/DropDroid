@@ -10,8 +10,8 @@ const QRCode = require('qrcode');
 const BEACON_PORT = 47882;
 const DEFAULT_DEVICE_PORT = 47881;
 const LOCAL_PROBE_INTERVAL_MS = 5000;
-const portalId = base64Url(crypto.randomBytes(16));
-const pairingSecret = base64Url(crypto.randomBytes(32));
+let portalId = base64Url(crypto.randomBytes(16));
+let pairingSecret = base64Url(crypto.randomBytes(32));
 const devices = new Map();
 let mainWindow;
 let udpSocket;
@@ -279,11 +279,19 @@ async function pingAndroid(target) {
 }
 
 ipcMain.handle('upload-file', async (_event, { filePath, target }) => {
-  if (!filePath || !target?.ip) throw new Error('Choose a device before sending');
+  if (!filePath) throw new Error('Cannot send this file because it has no local path (e.g., dragged from a web browser or Photos). Please drag the file directly from Finder.');
+  if (!target?.ip) throw new Error('Choose a device before sending');
   return uploadFile(filePath, target);
 });
 
 ipcMain.handle('get-devices', () => Array.from(devices.values()));
+ipcMain.handle('unpair', () => {
+  portalId = base64Url(crypto.randomBytes(16));
+  pairingSecret = base64Url(crypto.randomBytes(32));
+  devices.clear();
+  sendDevices();
+  return true;
+});
 ipcMain.handle('ping-device', async (_event, target) => pingAndroid(target));
 ipcMain.handle('get-pairing', async () => {
   const payload = JSON.stringify({ app: 'DropDroid', version: 1, portalId, secret: pairingSecret, createdAt: Date.now() });

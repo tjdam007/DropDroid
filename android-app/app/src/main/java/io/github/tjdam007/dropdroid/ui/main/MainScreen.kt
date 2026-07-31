@@ -468,12 +468,20 @@ private fun NotificationPanel() {
 
 @Composable
 private fun PairingPanel(state: ReceiverState, onScanQr: () -> Unit) {
+  val context = LocalContext.current
   FeaturePanel(
     title = if (state.isPaired) "Secure portal paired" else "Pair secure portal",
     body = if (state.isPaired) "Only the paired portal can send files to this phone." else "Scan the QR shown on the desktop portal before receiving files.",
     action = {
-      Button(onClick = onScanQr) {
-        IconText(R.drawable.ic_lucide_qr_code, if (state.isPaired) "Rescan" else "Scan QR")
+      Row(horizontalArrangement = Arrangement.spacedBy(DropSpacing.sm)) {
+        if (state.isPaired) {
+          OutlinedButton(onClick = { ApkDropServer.unpair(context) }) {
+            Text("Unpair")
+          }
+        }
+        Button(onClick = onScanQr) {
+          IconText(R.drawable.ic_lucide_qr_code, if (state.isPaired) "Rescan" else "Scan QR")
+        }
       }
     },
   )
