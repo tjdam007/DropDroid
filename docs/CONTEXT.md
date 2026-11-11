@@ -60,6 +60,11 @@ Compose) over the LAN. QR pairing + HMAC-signed transfers. No cloud. See `README
   of a scripted run — screencap loop is reliable, `adb emu screenrecord`/`screenrecord` were not).
 - Upload key reset requested 2026-11-11 (owner uploaded the PEM). **New upload key valid from
   13 Nov 2026 11:15** — upload 0.1.4 AAB after that.
+- 2026-11-11 11:58 IST: scheduled upload run fired two days early. AAB (0.1.4 / code 5) verified
+  signed with the new key (SHA1 `34:4F:…:C9:B5`); `bin/play-upload.py … --draft --dry-run` was
+  rejected: `upload bundle failed (403): The upload certificate this APK is signed with is not yet
+  valid because it has been recently reset.` Nothing uploaded, no Console changes, no review sent.
+  Re-run the same steps after 13 Nov 2026 11:15 IST.
 
 ## Next steps
 
