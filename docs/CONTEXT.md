@@ -55,13 +55,14 @@ Compose) over the LAN. QR pairing + HMAC-signed transfers. No cloud. See `README
 - 2026-11-11: **Request install packages** (file sharing + App functionality) and **FGS dataSync**
   (Network processing → Other) declarations saved, both with video
   https://drive.google.com/file/d/1ZC9IluT0xjF8HQ-70dNcysnwVjfNYXsW/view (Drive, tjdam007).
-  The Drive file is still **Restricted** — must be set to "Anyone with the link" before review.
+  Drive file is public (anyone with the link) — verified 2026-11-11.
 - Demo video: `docs/store/dropdroid_play_demo.mp4` (88 s, captioned; built from emulator screencaps
   of a scripted run — screencap loop is reliable, `adb emu screenrecord`/`screenrecord` were not).
-- Upload key reset: dialog needs the PEM picked by hand (Chrome extension refuses .pem uploads).
+- Upload key reset requested 2026-11-11 (owner uploaded the PEM). **New upload key valid from
+  13 Nov 2026 11:15** — upload 0.1.4 AAB after that.
 
 ## Next steps
 
-1. Owner: request upload key reset in Console (docs/store/PLAY_CONSOLE_SETUP.md §1).
+1. ~~Request upload key reset~~ done; wait until 13 Nov 2026 11:15.
 2. Owner: App content forms + privacy URL in Console (§3), incl. FGS video + install-packages declaration.
 3. After reset approval: upload 0.1.4 AAB to internal, then production (older account: no 12-tester closed-test rule). Ask before production.
