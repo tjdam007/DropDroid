@@ -1,0 +1,29 @@
+DropDroid moves files from your computer to your Android phone directly over your own local network. Nothing is uploaded to the internet, a cloud drive or any server. There is no account to create.
+
+HOW IT WORKS
+1. Open DropDroid on your phone.
+2. Start the free DropDroid desktop portal on your computer (Windows, macOS or Linux, from github.com/tjdam007/DropDroid).
+3. Scan the QR code shown in the portal to pair.
+4. Drop any file into the portal. It arrives on your phone in seconds.
+
+PRIVATE BY DESIGN
+• Local only: files travel straight between your devices over Wi-Fi, phone hotspot, LAN or USB tethering.
+• Secure pairing: only the portal you scanned can send files to your phone.
+• Every transfer is signed and its contents are verified, so altered or repeated uploads are rejected.
+• No ads, no accounts, no sign-in.
+
+BUILT FOR EVERYDAY USE
+• Any file type: photos, videos, PDFs, documents, archives and more.
+• Recent files list: tap a file to open it in the right app.
+• Choose your save folder, or keep the default Downloads / DropDroid folder.
+• Receives in the background with a status notification showing progress.
+• Automatic device discovery, with a manual IP fallback for strict networks.
+• Light and dark themes, and a two-pane layout on tablets and foldables.
+
+FOR DEVELOPERS AND TESTERS
+Sending an APK? Turn on the optional install helper and DropDroid opens Android's installer once the file arrives. Android always asks you to confirm before anything is installed.
+
+OPEN SOURCE
+DropDroid is free and open source under the MIT licence. Read the code, report issues or contribute at github.com/tjdam007/DropDroid.
+
+Note: DropDroid receives files. You need the DropDroid desktop portal running on a computer that can reach your phone on the same local network.

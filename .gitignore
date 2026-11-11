@@ -22,3 +22,4 @@ android-app/local.properties
 *.aab
 release/
 screenshots/
+android-app/keystore.properties
