@@ -2,6 +2,8 @@ let devices = [];
 let selectedDevice = null;
 let transfers = [];
 let deviceStatuses = new Map();
+let uploadQueue = [];
+let isUploading = false;
 
 const deviceList = document.querySelector('#deviceList');
 const deviceCount = document.querySelector('#deviceCount');
@@ -35,7 +37,7 @@ if (!window.apkDrop) {
       const response = await fetch(`/api/ping?ip=${encodeURIComponent(target.ip)}&port=${encodeURIComponent(target.port || 47881)}`);
       return response.json();
     },
-    uploadFile: async (file, target, onProgress) => {
+    uploadFile: async (id, file, target, onProgress) => {
       const hash = await fileSha256(file);
       return uploadWithProgress(file, target, hash, onProgress);
     },
@@ -48,6 +50,59 @@ if (!window.apkDrop) {
       return () => clearInterval(interval);
     },
   };
+}
+
+if (window.apkDrop.onUploadProgress) {
+  window.apkDrop.onUploadProgress(({ id, progress }) => {
+    const transfer = transfers.find((t) => t.id === id);
+    if (!transfer) return;
+    updateTransfer(id, {
+      status: 'Sending',
+      detail: `${Math.round(progress * 100)}% sent`,
+      progress: Math.max(0.05, progress),
+    });
+    statusLine.textContent = `Sending ${transfer.name}...`;
+  });
+}
+
+async function processQueue() {
+  if (isUploading || uploadQueue.length === 0) return;
+  isUploading = true;
+  
+  while (uploadQueue.length > 0) {
+    const { file, transferId } = uploadQueue.shift();
+    await performUpload(file, transferId);
+  }
+  
+  isUploading = false;
+}
+
+async function performUpload(file, transferId) {
+  const isApk = file.name.toLowerCase().endsWith('.apk');
+  fileKind.textContent = isApk ? 'Android APK' : 'Any file';
+  statusLine.textContent = `Preparing ${file.name}...`;
+  try {
+    const payload = window.apkDrop.mode === 'electron' ? (window.apkDrop.getFilePath ? window.apkDrop.getFilePath(file) : file.path) : file;
+    if (window.apkDrop.mode === 'electron' && !payload) {
+      throw new Error('Cannot send virtual files (e.g. dragged from a browser). Please drag the file directly from Finder.');
+    }
+    updateTransfer(transferId, { status: 'Hashing', detail: 'Securing file', progress: 0.03 });
+    const result = await window.apkDrop.uploadFile(transferId, payload, selectedDevice, (progress) => {
+      updateTransfer(transferId, {
+        status: 'Sending',
+        detail: `${Math.round(progress * 100)}% sent`,
+        progress: Math.max(0.05, progress),
+      });
+      statusLine.textContent = `Sending ${file.name}...`;
+    });
+    updateTransfer(transferId, { status: 'Done', detail: 'Sent to phone', progress: 1 });
+    statusLine.textContent = isApk
+      ? `Sent ${result.filename}. The phone can open the installer if its toggle is on.`
+      : `Sent ${result.filename}`;
+  } catch (error) {
+    updateTransfer(transferId, { status: 'Error', detail: error.message || 'Could not send file' });
+    statusLine.textContent = error.message || 'Could not send file';
+  }
 }
 
 async function fileSha256(file) {
@@ -251,32 +306,9 @@ async function sendFile(file) {
     renderDevices();
   }
 
-  const isApk = file.name.toLowerCase().endsWith('.apk');
   const transferId = addTransfer(file);
-  fileKind.textContent = isApk ? 'Android APK' : 'Any file';
-  statusLine.textContent = `Preparing ${file.name}...`;
-  try {
-    const payload = window.apkDrop.mode === 'electron' ? (window.apkDrop.getFilePath ? window.apkDrop.getFilePath(file) : file.path) : file;
-    if (window.apkDrop.mode === 'electron' && !payload) {
-      throw new Error('Cannot send virtual files (e.g. dragged from a browser). Please drag the file directly from Finder.');
-    }
-    updateTransfer(transferId, { status: 'Hashing', detail: 'Securing file', progress: 0.03 });
-    const result = await window.apkDrop.uploadFile(payload, selectedDevice, (progress) => {
-      updateTransfer(transferId, {
-        status: 'Sending',
-        detail: `${Math.round(progress * 100)}% sent`,
-        progress: Math.max(0.05, progress),
-      });
-      statusLine.textContent = `Sending ${file.name}...`;
-    });
-    updateTransfer(transferId, { status: 'Done', detail: 'Sent to phone', progress: 1 });
-    statusLine.textContent = isApk
-      ? `Sent ${result.filename}. The phone can open the installer if its toggle is on.`
-      : `Sent ${result.filename}`;
-  } catch (error) {
-    updateTransfer(transferId, { status: 'Error', detail: error.message || 'Could not send file' });
-    statusLine.textContent = error.message || 'Could not send file';
-  }
+  uploadQueue.push({ file, transferId });
+  processQueue();
 }
 
 async function retryTransfer(id) {
@@ -296,26 +328,8 @@ async function retryTransfer(id) {
     }
   }
 
-  updateTransfer(id, { status: 'Hashing', detail: 'Retrying securely', progress: 0.03 });
-  statusLine.textContent = `Retrying ${transfer.name}...`;
-  try {
-    const payload = window.apkDrop.mode === 'electron' ? (window.apkDrop.getFilePath ? window.apkDrop.getFilePath(transfer.file) : transfer.file.path) : transfer.file;
-    if (window.apkDrop.mode === 'electron' && !payload) {
-      throw new Error('Cannot send virtual files. Please drag the file directly from Finder.');
-    }
-    const result = await window.apkDrop.uploadFile(payload, selectedDevice, (progress) => {
-      updateTransfer(id, {
-        status: 'Sending',
-        detail: `${Math.round(progress * 100)}% sent`,
-        progress: Math.max(0.05, progress),
-      });
-    });
-    updateTransfer(id, { status: 'Done', detail: 'Sent to phone', progress: 1 });
-    statusLine.textContent = `Sent ${result.filename}`;
-  } catch (error) {
-    updateTransfer(id, { status: 'Error', detail: error.message || 'Could not send file' });
-    statusLine.textContent = error.message || 'Could not send file';
-  }
+  uploadQueue.push({ file: transfer.file, transferId: id });
+  processQueue();
 }
 
 useManual.addEventListener('click', useManualDevice);

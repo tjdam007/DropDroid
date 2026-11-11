@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -122,6 +123,13 @@ internal fun MainScreen(state: ReceiverState, modifier: Modifier = Modifier) {
         ApkDropServer.setDestinationTree(context, uri)
       }
     }
+  LaunchedEffect(Unit) {
+    val prefs = context.getSharedPreferences("apk_drop", android.content.Context.MODE_PRIVATE)
+    if (!prefs.getBoolean("has_prompted_for_folder", false) && prefs.getString("destination_tree_uri", null) == null) {
+      prefs.edit().putBoolean("has_prompted_for_folder", true).apply()
+      folderPicker.launch(null)
+    }
+  }
 
   Scaffold(
     modifier = modifier.fillMaxSize(),

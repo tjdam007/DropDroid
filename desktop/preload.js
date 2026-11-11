@@ -7,7 +7,12 @@ contextBridge.exposeInMainWorld('apkDrop', {
   getPairing: () => ipcRenderer.invoke('get-pairing'),
   unpair: () => ipcRenderer.invoke('unpair'),
   pingDevice: (target) => ipcRenderer.invoke('ping-device', target),
-  uploadFile: (filePath, target) => ipcRenderer.invoke('upload-file', { filePath, target }),
+  uploadFile: (id, filePath, target) => ipcRenderer.invoke('upload-file', { id, filePath, target }),
+  onUploadProgress: (callback) => {
+    const listener = (_event, data) => callback(data);
+    ipcRenderer.on('upload-progress', listener);
+    return () => ipcRenderer.removeListener('upload-progress', listener);
+  },
   onDevices: (callback) => {
     const listener = (_event, devices) => callback(devices);
     ipcRenderer.on('devices', listener);

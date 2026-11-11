@@ -148,7 +148,7 @@ function sendDevices() {
   mainWindow.webContents.send('devices', Array.from(devices.values()));
 }
 
-function uploadFile(filePath, target) {
+function uploadFile(id, filePath, target, event) {
   return new Promise((resolve, reject) => {
     const stat = fs.statSync(filePath);
     const filename = path.basename(filePath);
@@ -204,7 +204,15 @@ function uploadFile(filePath, target) {
     request.on('error', (error) => {
       reject(new Error(formatConnectionError(error, target)));
     });
-    fs.createReadStream(filePath).pipe(request);
+    const readStream = fs.createReadStream(filePath);
+    let uploadedBytes = 0;
+    readStream.on('data', (chunk) => {
+      uploadedBytes += chunk.length;
+      if (event && id) {
+        event.sender.send('upload-progress', { id, progress: uploadedBytes / stat.size });
+      }
+    });
+    readStream.pipe(request);
   });
 }
 
@@ -278,10 +286,10 @@ async function pingAndroid(target) {
   return lastStatus;
 }
 
-ipcMain.handle('upload-file', async (_event, { filePath, target }) => {
+ipcMain.handle('upload-file', async (event, { id, filePath, target }) => {
   if (!filePath) throw new Error('Cannot send this file because it has no local path (e.g., dragged from a web browser or Photos). Please drag the file directly from Finder.');
   if (!target?.ip) throw new Error('Choose a device before sending');
-  return uploadFile(filePath, target);
+  return uploadFile(id, filePath, target, event);
 });
 
 ipcMain.handle('get-devices', () => Array.from(devices.values()));
