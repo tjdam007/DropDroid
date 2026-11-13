@@ -74,11 +74,17 @@ Compose) over the LAN. QR pairing + HMAC-signed transfers. No cloud. See `README
   app category Tools) **sent for review** — status "Changes in review", Google's quick checks were
   still running (auto-sent when they pass). No production release created.
 
+- **2026-11-13 ~12:15 IST: 0.1.4 (code 5) promoted to production** (owner approved) via
+  `bin/play-upload.py --version-code 5 --track production` (full rollout, en-GB what's new).
+  Publishing overview: "Production 0.1.4 — Start full rollout" in Changes in review, quick checks
+  running, auto-sent to Google when they pass (managed publishing off). Dashboard shows Production
+  "Inactive" until Google approves.
+
 ## Next steps
 
-1. Wait for Google review of the 10 changes (typically ≤7 days); watch for policy rejections,
-   especially REQUEST_INSTALL_PACKAGES / FGS dataSync declarations.
-2. Owner: create the production release (promote 0.1.4 from internal) — needs explicit approval.
+1. Wait for Google review of the setup changes + production 0.1.4 (typically ≤7 days); watch for
+   policy rejections, especially REQUEST_INSTALL_PACKAGES / FGS dataSync declarations.
+2. ~~Promote 0.1.4 to production~~ done 2026-11-13. Next build: version code 6, pass `--mapping`.
 3. Optional: upload native debug symbols to silence the release warning
    (`ndk { debugSymbolLevel = "SYMBOL_TABLE" }`).
 4. "Declare your trader status" banner is showing on the developer account — owner should handle.
