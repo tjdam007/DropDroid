@@ -65,9 +65,20 @@ Compose) over the LAN. QR pairing + HMAC-signed transfers. No cloud. See `README
   rejected: `upload bundle failed (403): The upload certificate this APK is signed with is not yet
   valid because it has been recently reset.` Nothing uploaded, no Console changes, no review sent.
   Re-run the same steps after 13 Nov 2026 11:15 IST.
+- **2026-11-13 ~11:35 IST: 0.1.4 (code 5) uploaded and live on internal testing.** Rebuilt AAB
+  (signed SHA1 `34:4F:…:C9:B5`), `play-upload.py --draft` with mapping.txt OK → in Console
+  "Save and publish" → internal track shows 0.1.4 "Available to internal testers". Only release
+  warning: native code has no debug symbols (recommendation, not blocking; deobfuscation file is
+  attached). Publishing overview: 10 changes (production countries 177 + rest of world, en-GB
+  listing, content rating, target audience 16+, privacy policy, ads, data safety, health apps,
+  app category Tools) **sent for review** — status "Changes in review", Google's quick checks were
+  still running (auto-sent when they pass). No production release created.
 
 ## Next steps
 
-1. ~~Request upload key reset~~ done; wait until 13 Nov 2026 11:15.
-2. Owner: App content forms + privacy URL in Console (§3), incl. FGS video + install-packages declaration.
-3. After reset approval: upload 0.1.4 AAB to internal, then production (older account: no 12-tester closed-test rule). Ask before production.
+1. Wait for Google review of the 10 changes (typically ≤7 days); watch for policy rejections,
+   especially REQUEST_INSTALL_PACKAGES / FGS dataSync declarations.
+2. Owner: create the production release (promote 0.1.4 from internal) — needs explicit approval.
+3. Optional: upload native debug symbols to silence the release warning
+   (`ndk { debugSymbolLevel = "SYMBOL_TABLE" }`).
+4. "Declare your trader status" banner is showing on the developer account — owner should handle.
